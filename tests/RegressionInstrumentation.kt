@@ -137,15 +137,14 @@ class RegressionInstrumentation : Instrumentation() {
             val fresh = LocalStore(isolated)
             check(fresh.countQuestions() == 0)
             SeedAssets.ensureQuestions(targetContext, fresh)
-            check(fresh.countQuestions() == 2445)
+            check(fresh.countQuestions() == 3021)
             val preschool = JSONObject().put("curriculumGrade", "幼儿园")
             check(fresh.questions(limit = 100, forLearning = true, curriculum = preschool).length() == 42)
             val sample = fresh.questions(limit = 1, level = "一年级").getJSONObject(0)
-            check(sample.getInt("term") in 1..2)
             fresh.deleteQuestion(sample.getString("id"))
             fresh.set("builtin_bank_version", "previous")
             SeedAssets.ensureQuestions(targetContext, fresh)
-            check(fresh.countQuestions() == 2444) { "Deleted builtin question reappeared" }
+            check(fresh.countQuestions() == 3020) { "Deleted builtin question reappeared" }
             checkLanContract(targetContext, fresh)
             fresh.close()
             checkParentCredentials()

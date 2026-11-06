@@ -292,6 +292,95 @@ mathPractice.forEach(([topic, exercise], index) => {
     }
 });
 
+// Each row supplies two different skills per grade, with 16 exercises per skill.
+const moreMath = [
+    [
+        ['20以内减法', n => [`${n + 2} − 2 = ？`, n, '从总数中去掉指定的数量。']],
+        ['比较大小', n => [`${n + 1} 比 3 大多少？`, n - 2, '用较大的数减去较小的数。']]
+    ],
+    [
+        ['有余数的除法', n => [`${n * 4 + n % 3 + 1} ÷ 4 的余数是多少？`, n % 3 + 1, '先找出不超过被除数的最大 4 的倍数，再相减。']],
+        ['两位数加法', n => [`有 ${n + 20} 本故事书和 17 本图画书，一共有多少本？`, n + 37, '求合计，用加法。']]
+    ],
+    [
+        ['面积', n => [`长方形长 ${n + 3} 米、宽 4 米，面积是多少平方米？`, (n + 3) * 4, '长方形面积等于长乘宽。']],
+        ['时间换算', n => [`一场活动持续 1 小时 ${n} 分钟，一共多少分钟？`, 60 + n, '1 小时等于 60 分钟。']]
+    ],
+    [
+        ['小数加法', n => [`${n}.4 + 2.6 = ？`, n + 3, '小数点对齐，十分位相加满十进一。']],
+        ['角度', n => [`直角三角形的一个锐角是 ${n + 20}°，另一个锐角是多少度？`, 70 - n, '直角三角形的两个锐角之和为 90°。']]
+    ],
+    [
+        ['最大公因数', n => [`${n * 2} 和 ${n * 3} 的最大公因数是多少？`, n, '去掉两数共有的倍数后，2 和 3 互质。']],
+        ['体积', n => [`长方体长 ${n} 厘米，宽 4 厘米，高 3 厘米，体积是多少立方厘米？`, n * 12, '长方体体积等于长、宽、高的乘积。']]
+    ],
+    [
+        ['分数应用', n => [`一盒有 ${n * 4} 支笔，送出其中的四分之一，还剩多少支？`, n * 3, '先求四分之一，再用总数减去送出的数量。']],
+        ['速度路程', n => [`骑车每小时行 ${n + 8} 千米，按同样速度骑 3 小时能行多少千米？`, (n + 8) * 3, '路程等于速度乘时间。']]
+    ],
+    [
+        ['有理数乘法', n => [`(−${n}) × (−4) = ？`, n * 4, '两个负数相乘得正数。']],
+        ['整式求值', n => [`当 x = ${n} 时，2x + 7 的值是多少？`, n * 2 + 7, '把 x 的值代入整式。']]
+    ],
+    [
+        ['一次函数', n => [`一次函数 y = 3x − 5，当 x = ${n} 时，y 是多少？`, n * 3 - 5, '把 x 的值代入函数式。']],
+        ['平方根', n => [`${(n + 7) ** 2} 的算术平方根是多少？`, n + 7, '算术平方根是平方后等于原数的非负数。']]
+    ],
+    [
+        ['相似三角形', n => [`两个相似三角形的对应边长之比为 2∶3。较小三角形的一条边长 ${n * 2}，较大三角形对应边长是多少？`, n * 3, '对应边长按同一个比例变化。']],
+        ['二次函数', n => [`抛物线 y = (x + ${n})² − 6 的对称轴是 x 等于多少？`, -n, '令平方项括号内的式子等于 0。']]
+    ]
+];
+moreMath.forEach((topics, gradeIndex) => {
+    for (const [topic, exercise] of topics) {
+        for (let n = 3; n <= 18; n++) {
+            const [stem, answer, tip] = exercise(n);
+            number(gradeIndex + 1, 0, topic, stem, answer, tip);
+        }
+    }
+});
+
+const extraVocabulary = [
+    'apple 苹果|banana 香蕉|pear 梨|orange 橙子|cat 猫|dog 狗|duck 鸭子|fish 鱼|red 红色|blue 蓝色|green 绿色|yellow 黄色',
+    'book 书|pen 钢笔|pencil 铅笔|ruler 尺子|hand 手|foot 脚|nose 鼻子|ear 耳朵|bread 面包|rice 米饭|milk 牛奶|egg 鸡蛋',
+    'window 窗户|door 门|desk 书桌|chair 椅子|morning 早晨|afternoon 下午|evening 傍晚|night 夜晚|sunny 晴朗的|rainy 下雨的|snowy 下雪的|cloudy 多云的',
+    'garden 花园|library 图书馆|hospital 医院|museum 博物馆|river 河流|forest 森林|mountain 山|island 岛|read 阅读|write 写|draw 画|sing 唱歌',
+    'ticket 票|station 车站|airport 机场|bridge 桥|breakfast 早餐|lunch 午餐|dinner 晚餐|snack 零食|quiet 安静的|busy 忙碌的|hungry 饥饿的|thirsty 口渴的',
+    'borrow 借入|lend 借出|return 归还|collect 收集|journey 旅程|map 地图|route 路线|passport 护照|careful 小心的|patient 有耐心的|honest 诚实的|polite 礼貌的',
+    'compare 比较|describe 描述|explain 解释|imagine 想象|habit 习惯|choice 选择|reason 原因|result 结果|ancient 古老的|modern 现代的|common 常见的|rare 罕见的',
+    'achieve 实现|consider 考虑|discover 发现|improve 改进|environment 环境|population 人口|temperature 温度|resource 资源|available 可获得的|familiar 熟悉的|similar 相似的|necessary 必要的',
+    'contribute 贡献|establish 建立|maintain 维持|recommend 推荐|evidence 证据|method 方法|purpose 目的|conclusion 结论|accurate 准确的|efficient 高效的|independent 独立的|responsible 负责任的'
+];
+extraVocabulary.forEach((words, gradeIndex) => {
+    const pairs = words.split('|').map(pair => pair.split(' '));
+    pairs.forEach(([english, chinese], index) => {
+        const other = [1, 2, 3].map(offset => pairs[Math.floor(index / 4) * 4 + (index + offset) % 4]);
+        const tip = english + ' 表示「' + chinese + '」。';
+        add(gradeIndex + 1, 0, '英语', '词义辨认', '哪个选项是 ' + english + ' 的常见含义？', chinese, other.map(pair => pair[1]), tip);
+        add(gradeIndex + 1, 0, '英语', '单词辨认', '哪个英语单词可以表示「' + chinese + '」？', english, other.map(pair => pair[0]), tip);
+    });
+});
+
+const antonyms = [
+    '前 后|多 少|开 关|进 退|远 近|长 短|高 低|快 慢',
+    '干净 肮脏|明亮 昏暗|安静 吵闹|温暖 寒冷|热闹 冷清|容易 困难|整齐 凌乱|坚硬 柔软',
+    '诚实 虚伪|勤劳 懒惰|勇敢 胆怯|粗心 细心|宽阔 狭窄|稀疏 茂密|清澈 浑浊|潮湿 干燥',
+    '具体 抽象|熟悉 陌生|清晰 模糊|严肃 随便|节约 浪费|赞成 反对|肯定 否定|增加 减少',
+    '谦虚 骄傲|镇定 慌乱|敏捷 迟钝|热情 冷淡|明智 愚蠢|严谨 草率|轻视 重视|扩大 缩小',
+    '繁荣 萧条|稳定 动荡|迅速 缓慢|顺利 曲折|公开 保密|真实 虚假|暂时 永久|主动 被动',
+    '慷慨 吝啬|坦率 含蓄|朴素 奢华|乐观 悲观|冷静 冲动|妥善 失当|周密 疏漏|刚强 软弱',
+    '凝聚 涣散|严密 松散|孤立 联合|统一 分裂|理性 感性|保守 激进|宽容 苛刻|简洁 冗长',
+    '推崇 鄙弃|果断 犹豫|充裕 匮乏|严苛 宽松|精确 粗略|隐晦 明白|深奥 浅显|繁复 简单'
+];
+antonyms.forEach((words, gradeIndex) => {
+    const pairs = words.split('|').map(pair => pair.split(' '));
+    pairs.forEach(([word, opposite], index) => {
+        const wrong = [1, 2, 3].map(offset => pairs[(index + offset) % pairs.length][0]);
+        add(gradeIndex + 1, 0, '语文', '反义词', '「' + word + '」的反义词是哪一个？', opposite, wrong,
+            '「' + word + '」和「' + opposite + '」意思相对。');
+    });
+});
+
 const seen = new Set();
 questions.forEach(question => {
     const key = question.level + '/' + question.term + '/' + question.q;
