@@ -92,12 +92,11 @@ class GateService : Service() {
         )
         val reason = if (mode == "choose") "mode" else DeviceRuntime.household.status().getString("reason")
         val visible = hasGate()
-        val feedback = visible && DeviceRuntime.household.hasFeedback()
         val needsGate = reason.isNotEmpty()
-        wasUsing = policy.count && !needsGate && !feedback
-        if (!policy.protect || (!needsGate && !feedback)) hideAll()
+        wasUsing = policy.count && !needsGate
+        if (!policy.protect || (!needsGate)) hideAll()
         if (needsGate && policy.protect) presentGate(reason, now, visible, canOverlay)
-        val mute = mode == "teen" && awake && (needsGate || feedback)
+        val mute = mode == "teen" && awake && needsGate
         gateAudio.update(mute && (policy.protect || GateActivity.visible))
     }
 

@@ -25,19 +25,6 @@ object DeviceRuntime {
         WebShell.PrefsHolder.baseUrl = Prefs.localBase(application)
         application.registerActivityLifecycleCallbacks(ActivityWindows)
         running = Running(bank, family, network)
-        resumeReviews(family)
-    }
-
-    private fun resumeReviews(family: Household) {
-        for (profile in 1..2) {
-            val data = family.store(profile)
-            if (GradingService.settings(data).optString("mode") != "ai") continue
-            val queue = data.reviews("pending")
-            for (index in 0 until queue.length()) {
-                val id = queue.getJSONObject(index).getString("id")
-                GradingService.enqueue(data, family.engine(profile), id)
-            }
-        }
     }
 
     fun pairingAddress(context: Context): JSONObject {

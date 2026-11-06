@@ -3,12 +3,14 @@
   const $ = id => document.getElementById(id);
   const grades = ['幼儿园', ...Array.from('一二三四五六七八九', n => n + '年级')];
   const subjects = ['语文','数学','英语','常识'];
+  const terms = [[0,'全年'],[1,'上学期'],[2,'下学期']];
   $('tvAddress').value = location.host;
   const configFields = [
     ['curriculumGrade','出题年级',grades],
+    ['questionTerm','出题学期',terms,'number'],
     ['dailyMinutes','每日观看上限（分钟）',1,480], ['sessionMinutes','每轮观看时间（分钟）',1,120],
     ['questionsPerRound','每轮题数',1,100], ['roundsPerDay','每日轮次上限',1,100],
-    ['playMode','任务模式',[['streak','连续答对'],['round','按组答题'],['practice','自由练习']]],
+    ['playMode','任务模式',[['streak','累计答对'],['round','按组答题'],['practice','自由练习']]],
     ['passPercent','通过所需正确率（%）',1,100,.01], ['allDay','全天可用','checkbox'],
     ['windowStart','开始时间','time'], ['windowEnd','结束时间','time'],
     ['extraEnabled','启用错题加练','checkbox'], ['wrongThreshold','触发加练的错题数',1,100],
@@ -16,19 +18,12 @@
   ];
   const questionFields = [
     ['id','题目 ID（新增时留空）','text'], ['subject','学科',subjects],
-    ['level','年级',grades], ['topic','知识点','text'], ['difficulty','难度',1,5],
-    ['type','题型',[['single','单选'],['multiple','多选'],['boolean','判断'],['text','填空'],['subjective','主观']]],
+    ['level','年级',grades], ['term','学期',[[0,'通用'], ...terms.slice(1)],'number'],
+    ['topic','知识点','text'], ['difficulty','难度',1,5],
     ['q','题干','textarea'], ['a','选项，每行一项','textarea'],
-    ['k','正确选项序号（从 1 开始）',1,8], ['correctIndices','多选序号，用逗号分隔','text'],
-    ['answers','填空可接受答案，每行一项','textarea'], ['modelAnswer','参考答案','textarea'],
-    ['rubric','评分标准','textarea'], ['tip','解析','textarea']
+    ['k','正确选项序号（从 1 开始）',1,8], ['tip','解析','textarea']
   ];
-  const gradingFields = [
-    ['mode','批改方式',[['manual','家长批改'],['ai','AI 批改']]],
-    ['passScore','及格分',1,100,.1], ['endpoint','HTTPS 接口地址','url'],
-    ['model','模型名称','text'], ['apiKey','API Key（留空保留已保存密钥）','password'], ['vision','支持图片批改','checkbox']
-  ];
-  const names = {settings: 'settings', questions: 'questions', reviews: 'reviews', records: 'records'};
+  const names = {settings: 'settings', questions: 'questions', records: 'records'};
   let token = sessionStorage.getItem('tvquiz-parent') || '';
   let child = 1, tab = 'settings', edited = null, busy = false, generation = 0;
 
@@ -137,6 +132,9 @@
     rules.passPercent = Number((rules.passRatio * 100).toFixed(2));
     fields('configFields', configFields, rules);
     const inputs = $('config').elements;
+    const updateTerm = () => { inputs.questionTerm.disabled = inputs.curriculumGrade.value === '幼儿园'; };
+    inputs.curriculumGrade.onchange = updateTerm;
+    updateTerm();
     const updateSchedule = () => {
       inputs.windowStart.disabled = inputs.allDay.checked;
       inputs.windowEnd.disabled = inputs.allDay.checked;
@@ -159,9 +157,8 @@
   function questionForm(item = {}) {
     edited = item.id ? item : null;
     fields('questionFields', questionFields, {
-      subject:'语文', level:'七年级', term:1, unit:1, difficulty:2, type:'single',
-      ...item, a:(item.a || []).join('\n'), k:(item.k || 0) + 1,
-      answers:(item.answers || []).join('\n'), correctIndices:(item.correctIndices || []).map(i => i + 1).join(',')
+      subject:'语文', level:'七年级', term:0, unit:1, difficulty:2, type:'single',
+      ...item, a:(item.a || []).join('\n'), k:(item.k || 0) + 1
     });
   }
   async function refreshQuestions() {
@@ -176,7 +173,11 @@
       const card = make('article');
       card.className = 'card';
       card.append(make('strong', [item.subject,item.level || '未标注年级', item.topic || '未标注知识点', '难度 ' + item.difficulty].join(' · ')),
-        make('p', item.q), action('编辑', () => { questionForm(item); $('question').scrollIntoView(); }),
+        make('p', item.q));
+      if (!item.type || item.type === 'single') {
+        card.append(action('编辑', () => { questionForm(item); $('question').scrollIntoView(); }));
+      }
+      card.append(
         action('删除', async () => {
           if (!confirm('删除这道题？')) return;
           await api('questions/' + encodeURIComponent(item.id), 'DELETE');
@@ -215,44 +216,6 @@
     $('bankTotal').textContent = '当前题库共 ' + total.toLocaleString('zh-CN') + ' 道题';
     $('bankCounts').replaceChildren(table);
   }
-  async function refreshReviews() {
-    const profile = child, snapshot = generation;
-    $('grading').hidden = true;
-    $('reviewList').replaceChildren();
-    const [settings, reviews] = await Promise.all([api('grading'), api('reviews?state=all')]);
-    if (snapshot !== generation || profile !== child) return;
-    fields('gradingFields', gradingFields, settings);
-    $('grading').hidden = false;
-    $('reviewList').replaceChildren(...reviews.items.map(item => {
-      const card = make('article');
-      card.className = 'card';
-      card.append(make('h2', item.state === 'graded' ? '已批改 · ' + item.score + ' 分' : '待批改'),
-        make('p', item.question.q), make('p', item.input.text || ''), make('p', item.feedback || ''));
-      if (item.question.modelAnswer) card.append(make('p', '参考答案：' + item.question.modelAnswer));
-      if (item.question.rubric) card.append(make('p', '评分标准：' + item.question.rubric));
-      const drawing = item.input.drawing || '';
-      if (drawing.startsWith('data:image/png;base64,')) {
-        const image = make('img'); image.src = drawing; image.alt = '孩子的手写答案'; card.append(image);
-      }
-      if (item.state !== 'graded') {
-        const grade = field(['score','评分',0,100,.1]);
-        const feedback = field(['feedback','批改反馈','textarea']);
-        card.append(grade, feedback, action('保存评分', async () => {
-          const score = grade.querySelector('input');
-          if (!score.value || !score.reportValidity()) throw Error('请填写 0–100 的评分。');
-          await api('reviews/' + encodeURIComponent(item.id), 'POST',
-            {score:Number(score.value),feedback:feedback.querySelector('textarea').value}, profile);
-          if (profile === child) await refreshReviews();
-        }), action('重试 AI 批改', async () => {
-          await api('reviews/' + encodeURIComponent(item.id) + '/retry', 'POST', {}, profile);
-          notice('已重新提交批改。');
-        }));
-      }
-      return card;
-    }));
-    if (!reviews.items.length) $('reviewList').append(make('p','暂无批改记录。'));
-    if (window.SOTV_MATH) window.SOTV_MATH($('reviewList'));
-  }
   async function refreshRecords() {
     const profile = child, snapshot = generation;
     const [history, events] = await Promise.all([api('history?days=7'), api('events?limit=50')]);
@@ -275,7 +238,6 @@
   async function refresh() {
     if (tab === 'settings') await refreshConfig();
     if (tab === 'questions') await refreshQuestions();
-    if (tab === 'reviews') await refreshReviews();
     if (tab === 'records') await refreshRecords();
   }
 
@@ -303,39 +265,63 @@
   });
   submit('filter', refreshQuestions);
   submit('question', async form => {
-    const question = {...edited, ...values(form)};
-    for (const key of ['a','answers']) question[key] = question[key].split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    const question = {...edited, ...values(form), type:'single'};
+    question.a = question.a.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
     question.k = (question.k || 1) - 1;
-    question.correctIndices = question.correctIndices.split(/[,，\s]+/).filter(Boolean).map(value => Number(value) - 1);
     await api('questions','POST',question); questionForm(); await refreshQuestions(); notice('题目已保存。');
   });
   submit('import', async form => {
     const file = form.elements.file.files[0];
-    if (file && file.size > 4_000_000) throw Error('JSON 文件需小于 4 MB。');
+    if (file && file.size > 32_000_000) throw Error('JSON 文件需小于 32 MB。');
     const items = JSON.parse(file ? await file.text() : form.elements.json.value);
     if (!Array.isArray(items)) throw Error('请输入题目 JSON 数组。');
-    const reply = await api('questions','POST',{items});
-    form.reset(); await refreshQuestions(); notice('导入 ' + reply.added + ' 道，跳过 ' + reply.skipped + ' 道。');
-  });
-  submit('grading', async form => {
-    await api('grading','PUT',values(form)); await refreshReviews(); notice('批改设置已保存。');
+    let added = 0, skipped = 0, batch = [], bytes = 0;
+    const send = async () => {
+      if (!batch.length) return;
+      const reply = await api('questions','POST',{items:batch});
+      added += reply.added; skipped += reply.skipped;
+      batch = []; bytes = 0;
+    };
+    try {
+      for (const item of items) {
+        const size = new Blob([JSON.stringify(item)]).size + 1;
+        if (size > 3_900_000) throw Error('单道题的数据太大。');
+        if (batch.length === 500 || bytes + size > 3_900_000) await send();
+        batch.push(item); bytes += size;
+      }
+      await send();
+    } catch (error) {
+      throw Error('已导入 ' + added + ' 道，跳过 ' + skipped + ' 道。' + error.message);
+    }
+    form.reset(); await refreshQuestions(); notice('导入 ' + added + ' 道，跳过 ' + skipped + ' 道。');
   });
 
   $('question').addEventListener('reset', event => { event.preventDefault(); questionForm(); });
   $('exportBank').onclick = async () => {
+    if (busy) return;
+    busy = true;
+    $('exportBank').disabled = true;
     try {
       const filter = values($('filter'));
-      const query = new URLSearchParams({limit:'5000'});
+      const query = new URLSearchParams();
       if (filter.subject) query.set('subject', filter.subject);
       if (filter.level) query.set('level', filter.level);
-      const result = await api('questions?' + query);
-      const url = URL.createObjectURL(new Blob([JSON.stringify(result.items, null, 2)], {type:'application/json'}));
+      const items = [];
+      while (true) {
+        const page = await api('questions/export?' + query);
+        if (!page.items.length) break;
+        items.push(...page.items);
+        query.set('after', page.items[page.items.length - 1].id);
+        notice('正在导出，已读取 ' + items.length + ' 道题。');
+      }
+      const url = URL.createObjectURL(new Blob([JSON.stringify(items)], {type:'application/json'}));
       const link = make('a');
       link.href = url; link.download = 'tvquiz-questions.json';
       document.body.append(link); link.click(); link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      notice('已导出 ' + result.items.length + ' 道题。');
+      notice('已导出 ' + items.length + ' 道题。');
     } catch (error) { notice(error.message, true); }
+    finally { busy = false; $('exportBank').disabled = false; }
   };
   $('useGrade').onclick = async () => {
     try {

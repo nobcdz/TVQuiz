@@ -18,13 +18,14 @@ internal object ViewingSettings {
         {"dailyMinutes":60,"sessionMinutes":10,"questionsPerRound":5,"roundsPerDay":6,"passRatio":1,
          "windowStart":"18:30","windowEnd":"20:00","allDay":true,"spacedRepetitionEnabled":false,
          "playMode":"streak","extraEnabled":true,"wrongThreshold":1,"extraQuestions":1,
-         "curriculumGrade":"七年级","curriculumTerm":1,"chineseUnit":1,"mathUnit":1,"englishUnit":1,"version":1}
+         "curriculumGrade":"一年级","questionTerm":1,"curriculumTerm":1,"chineseUnit":1,"mathUnit":1,"englishUnit":1,"version":1}
     """.trimIndent())
 
     fun read(raw: String): JSONObject {
         val saved = runCatching { JSONObject(raw) }.getOrElse { JSONObject() }
         val merged = defaults()
         for (key in saved.keys()) merged.put(key, saved.get(key))
+        if (saved.has("curriculumGrade") && !saved.has("questionTerm")) merged.put("questionTerm", 0)
         for ((key, fallback) in times) {
             if (!clock.matches(merged.optString(key))) merged.put(key, fallback)
         }
@@ -57,6 +58,11 @@ internal object ViewingSettings {
             val grade = patch.getString("curriculumGrade")
             require(grade in levels)
             current.put("curriculumGrade", grade)
+        }
+        if (patch.has("questionTerm")) {
+            val term = patch.getDouble("questionTerm")
+            require(term == 0.0 || term == 1.0 || term == 2.0) { "请选择全年、上学期或下学期" }
+            current.put("questionTerm", term.toInt())
         }
         if (patch.has("playMode")) {
             val mode = patch.getString("playMode")

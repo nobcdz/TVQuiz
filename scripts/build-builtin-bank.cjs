@@ -383,10 +383,24 @@ antonyms.forEach((words, gradeIndex) => {
 
 require('./expand-builtin-bank.cjs')(add);
 require('./extend-builtin-bank.cjs')(add);
+require('./grow-builtin-bank.cjs')(add);
+require('./showcase-builtin-bank.cjs')(add);
+require('./reading-builtin-bank.cjs')(add);
+require('./label-builtin-terms.cjs')(questions);
+require('./replace-duplicate-stems.cjs')(questions, add);
+const balanceNumericOptions = require('./balance-numeric-options.cjs');
+balanceNumericOptions(questions);
+for (const question of questions) {
+    const retired = question.retiredQuestion;
+    if (!retired) continue;
+    const before = {...retired, subject: question.subject};
+    balanceNumericOptions([before]);
+    if (before.previousOptions) retired.balancedOptions = before.a;
+}
 
 const seen = new Set();
 questions.forEach(question => {
-    const key = question.level + '/' + question.term + '/' + question.q;
+    const key = [question.level, question.subject, question.q.trim().replace(/\s+/g, ' ')].join('/');
     if (seen.has(key)) throw new Error('Duplicate question: ' + key);
     seen.add(key);
     if (!question.topic.trim() || !question.tip.trim() || question.a[question.k] == null ||

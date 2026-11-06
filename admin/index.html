@@ -24,7 +24,7 @@
 <section id="panel" hidden>
 <div class="toolbar"><label>管理档案<select id="profile"></select></label><button id="logout" type="button">退出登录</button></div>
 <nav aria-label="管理分类" id="tabs">
-<button data-tab="settings" aria-pressed="true">观看设置</button><button data-tab="questions" aria-pressed="false">题库管理</button><button data-tab="reviews" aria-pressed="false">主观题批改</button><button data-tab="records" aria-pressed="false">使用记录</button>
+<button data-tab="settings" aria-pressed="true">观看设置</button><button data-tab="questions" aria-pressed="false">题库管理</button><button data-tab="records" aria-pressed="false">使用记录</button>
 </nav>
 <section id="settings">
 <form class="card" id="family"><h2>孩子档案</h2><div class="fields" id="familyFields"></div><button>保存档案</button></form>
@@ -36,13 +36,9 @@
 <div class="bank-counts" id="bankCounts"></div>
 </section>
 <form class="card" id="filter"><h2>题库</h2><div class="fields" id="filters"></div><button>查看题目</button> <button type="button" id="exportBank">导出筛选题库</button> <button type="button" id="useGrade">设为出题年级</button></form>
-<form class="card" id="question"><h2>新增或编辑题目</h2><div class="fields" id="questionFields"></div><button>保存题目</button> <button type="reset">清空</button></form>
+<form class="card" id="question"><h2>新增或编辑单选题</h2><div class="fields" id="questionFields"></div><button>保存题目</button> <button type="reset">清空</button></form>
 <form class="card" id="import"><h2>批量导入</h2><label>题库 JSON 文件<input name="file" type="file" accept=".json,application/json"></label><label>或粘贴 JSON 数组<textarea name="json" rows="4"></textarea></label><button>导入题目</button></form>
 <div id="questionList"></div>
-</section>
-<section id="reviews" hidden>
-<form class="card" id="grading"><h2>批改设置</h2><div class="fields" id="gradingFields"></div><button>保存批改设置</button></form>
-<div id="reviewList"></div>
 </section>
 <section id="records" hidden>
 <div class="card"><h2>近七日记录</h2><div id="history"></div></div>

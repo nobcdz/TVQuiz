@@ -2,7 +2,7 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   var all = function (selector) { return Array.prototype.slice.call(document.querySelectorAll(selector)); };
-  var state = { screen: '', round: null, config: {}, learning: {}, busy: false, selected: [], version: 0, awaiting: false, reviewed: false, review: null, draft: null };
+  var state = { screen: '', round: null, config: {}, learning: {}, busy: false, selected: [], version: 0, draft: null };
   var routeEpoch = 0, polling = false;
   var toastTimer, nextTimer;
   var poems = [
@@ -99,9 +99,6 @@
       state.busy = false;
       if (failure) { retryScreen(failure); return; }
       if (response.status) { state.learning = response.status; pill(); }
-      if (response.pending) { pending(); return; }
-      if (response.reviewed) { reviewed(response); return; }
-      state.awaiting = state.reviewed = false;
       if (response.blocked) { lock(response.blocked); return; }
       if (response.watching) {
         state.lockReason = '';
@@ -140,29 +137,29 @@
   function renderQuestion() {
     var task = state.round, question = task.question;
     if (!state.draft || state.draft.nonce !== task.nonce) {
-      state.draft = { nonce: task.nonce, text: '', drawing: '' };
+      state.draft = { nonce: task.nonce, text: '' };
     }
     state.selected = [];
     resetMark();
     $('qText').textContent = question.q;
-    var mode = {streak:'连续答对', practice:'自由练习', round:'本组任务'};
+    var mode = {streak:'累计答对', practice:'自由练习', round:'本组任务'};
     var context = [task.childName ? '请 ' + task.childName + ' 作答' : '', question.level, question.subject];
     if (question.topic) context.push('知识点：' + question.topic);
     context.push(task.extra ? '加练任务' : mode[task.mode] || mode.round);
     context.push('难度 ' + (question.difficulty >= 4 ? '难' : question.difficulty === 3 ? '中' : '易'));
     $('qMode').textContent = context.filter(Boolean).join(' · ');
     var position = task.answered + 1;
-    if (task.mode === 'streak') position = task.streak;
+    if (task.mode === 'streak') position = task.correct;
     if (task.mode === 'round') position = Math.min(position, task.target);
     $('qIndex').textContent = position;
     $('qTotal').textContent = task.mode === 'practice' ? '题' : '/ ' + task.target;
     $('qPool').textContent = task.extraPool > 0 ? '加练池还剩 ' + task.extraPool + ' 题' : '';
-    $('qDots').textContent = task.mode === 'streak' ? '连续答对 ' + task.streak + ' 题' : '';
+    $('qDots').textContent = task.mode === 'streak' ? '累计答对 ' + task.correct + ' 题' : '';
 
     var area = $('qOptions');
     area.textContent = '';
-    if (question.type === 'text' || question.type === 'subjective') {
-      writtenControls(area, question.type);
+    if (question.type === 'text') {
+      writtenControls(area);
     } else {
       var options = document.createDocumentFragment();
       (question.a || []).forEach(function (text, index) {
@@ -182,12 +179,12 @@
     focusDefault();
   }
 
-  function writtenControls(area, type) {
+  function writtenControls(area) {
     var field = document.createElement('textarea');
     var draft = state.draft;
     field.id = 'writtenAnswer';
     field.className = 'written-answer';
-    field.placeholder = type === 'subjective' ? '写下您的思路和答案…' : '请输入答案';
+    field.placeholder = '请输入答案';
     field.setAttribute('aria-label', field.placeholder);
     field.maxLength = 10000;
     field.rows = 4;
@@ -198,16 +195,7 @@
       var tools = document.createElement('div');
       tools.className = 'input-tools';
       tools.appendChild(command('语音输入', 'voice', 'btn btn-ghost'));
-      tools.appendChild(command('手写作答', 'handwrite', 'btn btn-ghost'));
       area.appendChild(tools);
-    }
-    if (draft.drawing.indexOf('data:image/png;base64,') === 0) {
-      var preview = document.createElement('img');
-      preview.src = draft.drawing;
-      preview.alt = '手写答案';
-      preview.className = 'drawing-preview';
-      area.appendChild(preview);
-      area.appendChild(command('清除手写', 'clear-drawing', 'btn btn-ghost'));
     }
     area.appendChild(command('提交答案', 'submit', 'btn btn-primary answer-submit'));
   }
@@ -237,23 +225,21 @@
     if (!task || state.busy) return;
     var input = $('writtenAnswer');
     var text = input ? input.value : '';
-    var drawing = state.draft ? state.draft.drawing : '';
     var choices = state.selected.slice();
-    if (input ? !text.trim() && !drawing : choices.length === 0) {
+    if (input ? !text.trim() : choices.length === 0) {
       toast('请先填写或选择答案');
       return;
     }
     state.busy = true;
     var submission = {
       childId: task.childId, roundId: task.id, nonce: task.nonce,
-      selections: choices, text: text, drawing: drawing
+      selections: choices, text: text
     };
     request('/api/quiz/answer', submission, function (error, reply) {
       if (state.round !== task || state.screen !== 'quiz') return;
-      if (error || reply.pending || reply.blocked) {
+      if (error || reply.blocked) {
         state.busy = false;
         if (error) toast(error);
-        else if (reply.pending) pending();
         else lock(reply.blocked);
         return;
       }
@@ -344,30 +330,10 @@
     focusDefault();
   }
 
-  function reviewed(reply) {
-    state.awaiting = false;
-    state.reviewed = true;
-    state.review = reply;
-    var mark = reply.result;
-    var details = [reply.feedback, mark.answerText ? '参考答案：' + mark.answerText : '',
-      mark.tip ? '解析：' + mark.tip : ''].filter(Boolean).join('\n');
-    lockCard('批改完成 · ' + reply.score + ' 分', details || '已保存本次批改结果',
-      mark.correct ? '✓' : '✎', mark.correct ? '本题通过' : '查看反馈后继续练习',
-      mark.finished && mark.passed ? '继续使用' : '继续答题', 'review-continue');
-    if (window.SOTV_MATH) window.SOTV_MATH($('lockDesc'));
-  }
-
-  function pending() {
-    state.awaiting = true;
-    state.reviewed = false;
-    lockCard('答案已保存', '等待家长或 AI 批改，通过后继续任务', '✓', '', '查看批改结果', 'retry');
-  }
-
   function lock(reason) {
     var titles = {schedule:'还没到可用时间', rounds:'今天的任务已全部完成',
       quota:'今天的使用时间已用完', timeup:'使用时间到了'};
     state.lockReason = reason;
-    if (reason === 'quota') { state.awaiting = false; state.reviewed = false; }
     state.round = null;
     var nextAt = state.learning.nextAvailableAt;
     var message = reason === 'timeup' ? '完成学习任务后才能使用设备' : '现在暂不可用';
@@ -407,25 +373,6 @@
     else qr.textContent = '暂无连接地址';
     focusDefault();
   }
-  function acknowledgeReview() {
-    var review = state.review;
-    if (!review || state.busy) return;
-    var stamp = routeEpoch;
-    state.busy = true;
-    var payload = { childId: review.childId, reviewId: review.reviewId };
-    request('/api/quiz/review', payload, function (failure, response) {
-      if (stamp !== routeEpoch) return;
-      state.busy = false;
-      if (failure) { toast(failure); return; }
-      state.reviewed = false;
-      var usage = response.status;
-      var outcome = review.result;
-      if (outcome.finished && outcome.passed && !usage.reason && usage.remainingSeconds > 0) {
-        nativeCall('exitToLauncher');
-      } else start();
-    });
-  }
-
   function activate(control) {
     control = control || window.QuizRemote.current();
     if (!control || window.QuizRemote.belowFold(control)) return;
@@ -452,13 +399,7 @@
         } else if (nativeCall('viewingMode') === 'choose') renderMode();
         break;
       case 'parent': nativeCall('chooseParent'); break;
-      case 'review-continue': acknowledgeReview(); break;
-      case 'voice': case 'handwrite': nativeCall('answerInput', [action === 'voice']); break;
-      case 'clear-drawing':
-        state.draft.drawing = '';
-        renderQuestion();
-        break;
-      case 'submit': submit(); break;
+      case 'voice': nativeCall('answerInput', [true]); break;      case 'submit': submit(); break;
       case 'retry': start(); break;
       case 'home': nativeCall('exitToLauncher'); break;
       case 'quiz':
@@ -575,8 +516,6 @@
         return;
       }
       if (viewers && viewers !== state.learning.viewerSelection) { start(); return; }
-      if (state.reviewed) return;
-      if (state.awaiting) { start(); return; }
       if (state.screen === 'lock' && state.lockReason !== reason) {
         if (reason) lock(reason); else start();
       } else if (state.screen === 'quiz') {
@@ -643,7 +582,7 @@
 
   window.SOTV_INPUT = function (result) {
     if (!result || !state.round) return;
-    state.draft = { nonce: state.round.nonce, text: String(result.text || ''), drawing: String(result.drawing || '') };
+    state.draft = { nonce: state.round.nonce, text: String(result.text || '') };
     renderQuestion();
   };
   window.TV = { move: move, select: function () { activate(); }, back: function () {

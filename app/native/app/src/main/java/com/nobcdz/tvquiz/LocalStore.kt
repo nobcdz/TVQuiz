@@ -49,6 +49,7 @@ class LocalStore(context: Context, val childId: Int = 1, private val shared: Loc
 
     internal companion object {
         const val DATABASE_NAME = "tvquiz.db"
+        private const val ACTIVE_QUESTION = "enabled=1 AND COALESCE(details, '') NOT LIKE '%\"type\":\"subjective\"%'"
     }
 
     private val records = LearningRecords(this)
@@ -83,8 +84,9 @@ class LocalStore(context: Context, val childId: Int = 1, private val shared: Loc
     }
 
     fun questions(subject: String? = null, level: String? = null, limit: Int = 200,
-                  spaced: Boolean = false, forLearning: Boolean = false, curriculum: JSONObject? = null): JSONArray {
-        val filters = mutableListOf("q.enabled = 1")
+                  spaced: Boolean = false, forLearning: Boolean = false, curriculum: JSONObject? = null,
+                  afterId: String? = null): JSONArray {
+        val filters = mutableListOf(ACTIVE_QUESTION)
         val values = mutableListOf<String>()
         if (!subject.isNullOrEmpty()) {
             filters.add("q.subject = ?")
@@ -94,10 +96,17 @@ class LocalStore(context: Context, val childId: Int = 1, private val shared: Loc
             filters.add("q.level = ?")
             values.add(level)
         }
+        var term = 0
         if (forLearning) {
             val plan = curriculum ?: config()
             filters.add("q.level = ?")
-            values.add(plan.getString("curriculumGrade"))
+            val grade = plan.getString("curriculumGrade")
+            values.add(grade)
+            if (grade != "幼儿园") term = plan.optInt("questionTerm").takeIf { it in 1..2 } ?: 0
+            if (term != 0) {
+                filters.add("q.term IN (0, ?)")
+                values.add(term.toString())
+            }
         }
 
         val withProgress = forLearning || spaced
@@ -112,7 +121,14 @@ class LocalStore(context: Context, val childId: Int = 1, private val shared: Loc
             order.add("p.updated_at")
             "LEFT JOIN question_progress p ON p.qid = q.id AND p.child = ?"
         } else ""
-        order.add("RANDOM()")
+        if (term != 0) order.add("q.term = 0")
+        if (afterId == null) {
+            order.add("RANDOM()")
+        } else {
+            filters.add("q.id > ?")
+            values.add(afterId)
+            order.add("q.id")
+        }
         values.add(limit.coerceIn(1, 5000).toString())
         val sql = """
             SELECT q.* FROM questions q $join
@@ -138,12 +154,12 @@ class LocalStore(context: Context, val childId: Int = 1, private val shared: Loc
             .put("a", JSONArray(text("options"))).put("k", number("answer")).put("tip", text("tip").orEmpty())
     }
 
-    fun countQuestions(): Int = readableDatabase.rawQuery("SELECT COUNT(*) FROM questions WHERE enabled=1", null).use {
+    fun countQuestions(): Int = readableDatabase.rawQuery("SELECT COUNT(*) FROM questions WHERE $ACTIVE_QUESTION", null).use {
         if (it.moveToFirst()) it.getInt(0) else 0
     }
 
     fun questionCounts(): JSONArray = readableDatabase.rawQuery(
-        "SELECT level, subject, COUNT(*) FROM questions WHERE enabled=1 GROUP BY level, subject", null
+        "SELECT level, subject, COUNT(*) FROM questions WHERE $ACTIVE_QUESTION GROUP BY level, subject", null
     ).use { rows ->
         JSONArray().apply {
             while (rows.moveToNext()) {
@@ -159,11 +175,10 @@ class LocalStore(context: Context, val childId: Int = 1, private val shared: Loc
         val type = item.optString("type", "single")
         val options = when (type) {
             "boolean" -> JSONArray().put("正确").put("错误")
-            "single", "multiple", "text", "subjective" -> item.optJSONArray("a") ?: JSONArray()
+            "single", "multiple", "text" -> item.optJSONArray("a") ?: JSONArray()
             else -> throw IllegalArgumentException("不支持此题型")
         }
         val answer = when (type) {
-            "subjective" -> 0
             "text" -> {
                 val acceptable = item.optJSONArray("answers") ?: JSONArray()
                 require(acceptable.length() > 0) { "填空题需要至少一个可接受的答案" }

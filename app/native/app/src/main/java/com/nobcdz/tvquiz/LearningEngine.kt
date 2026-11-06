@@ -23,7 +23,6 @@ class LearningEngine(private val store: LocalStore) {
             .put("nextAvailableAt", state.availableAt)
             .put("roundsDoneToday", state.rounds)
             .put("reason", state.reason)
-            .put("awaitingReview", active()?.has("pendingReview") == true)
     }
 
     @Synchronized
@@ -67,13 +66,6 @@ class LearningEngine(private val store: LocalStore) {
         val blocked = viewing.getString("reason")
         if (blocked == "quota") return reply.put("blocked", blocked)
 
-        val feedback = store.get("review_feedback").takeIf(String::isNotEmpty)?.let(store::review)
-        if (feedback?.optString("state") == "graded") {
-            return reply.put("reviewed", true).put("reviewId", feedback.getString("id"))
-                .put("score", feedback.getDouble("score")).put("feedback", feedback.optString("feedback"))
-                .put("result", feedback.getJSONObject("result"))
-        }
-
         val config = store.config()
         val mode = config.getString("playMode")
         if (mode != "practice") {
@@ -81,9 +73,8 @@ class LearningEngine(private val store: LocalStore) {
             if (viewing.optLong("remainingSeconds") > 0L) return reply.put("watching", true)
         }
 
-        val saved = active()
-        if (saved?.has("pendingReview") == true) {
-            return reply.put("pending", true).put("reviewId", saved.getString("pendingReview"))
+        val saved = active()?.takeUnless {
+            it.has("pendingReview") || it.optJSONObject("question")?.optString("type") == "subjective"
         }
         val newRules = saved != null && saved.optInt("answered") == 0 &&
             saved.getJSONObject("rules").optInt("version") != config.optInt("version")
@@ -103,37 +94,7 @@ class LearningEngine(private val store: LocalStore) {
         put("rules", config)
         put("mode", config.getString("playMode"))
         put("target", config.getInt("questionsPerRound"))
-        for (key in listOf("answered", "correct", "streak")) put(key, 0)
-    }
-
-    @Synchronized
-    fun acknowledgeReview(id: String): JSONObject {
-        if (store.get("review_feedback") == id) store.set("review_feedback", "")
-        return JSONObject().put("ok", true).put("status", status())
-    }
-
-    @Synchronized
-    fun grade(reviewId: String, score: Double, feedback: String, source: String): JSONObject {
-        require(score in 0.0..100.0) { "分数需要在 0–100 之间" }
-        val entry = requireNotNull(store.review(reviewId)) { "待批题目不存在" }
-        if (entry.optString("state") == "graded") return entry
-        val passScore = GradingService.settings(store).optDouble("passScore", 60.0)
-        val passed = score >= passScore
-        val quality = if (!passed) 1 else if (score >= 90) 5 else if (score >= 75) 4 else 3
-        return atomic {
-            val result = answer(entry.getJSONObject("input"), passed, quality)
-            require(!result.has("error") && !result.has("blocked")) { "当前任务暂不可结算，请在可用时段重试" }
-            entry.put("result", result)
-            entry.put("source", source)
-            entry.put("feedback", feedback.take(5_000))
-            entry.put("score", score)
-            entry.put("gradedAt", System.currentTimeMillis())
-            entry.put("state", "graded")
-            store.saveReview(entry)
-            store.set("review_feedback", reviewId)
-            store.logEvent("review_graded", JSONObject().put("score", score).put("source", source).put("id", reviewId))
-            entry
-        }
+        for (key in listOf("answered", "correct")) put(key, 0)
     }
 
     private inline fun <T> atomic(work: () -> T): T {
@@ -149,48 +110,37 @@ class LearningEngine(private val store: LocalStore) {
     }
 
     @Synchronized
-    fun answer(input: JSONObject, verdict: Boolean? = null, quality: Int? = null): JSONObject {
+    fun answer(input: JSONObject): JSONObject {
         val current = status()
         val blocked = current.getString("reason")
-        val student = verdict == null
-        if (student && blocked == "quota") return JSONObject().put("blocked", blocked)
-        if (student) {
-            val previous = store.get("last_answer").takeIf(String::isNotEmpty)?.let { JSONObject(it) }
-            if (previous != null && previous.optString("nonce") == input.optString("nonce")) {
-                return previous.getJSONObject("result")
-            }
+        if (blocked == "quota") return JSONObject().put("blocked", blocked)
+        val previous = store.get("last_answer").takeIf(String::isNotEmpty)?.let { JSONObject(it) }
+        if (previous != null && previous.optString("nonce") == input.optString("nonce")) {
+            return previous.getJSONObject("result")
         }
 
         val round = active() ?: return JSONObject().put("error", "round_missing")
-        if (student && round.has("pendingReview")) {
-            return JSONObject().put("pending", true).put("status", current)
-                .put("reviewId", round.getString("pendingReview"))
-        }
-        if (student) {
-            require(!RoundRules.needsNewQuestion(round, store.config())) { "年级或学期已更新，请重新加载题目" }
-        }
+        require(!round.has("pendingReview")) { "题目已更新，请重新加载" }
+        require(!RoundRules.needsNewQuestion(round, store.config())) { "年级或学期已更新，请重新加载题目" }
         val sameRound = input.getString("roundId") == round.getString("id")
         val sameQuestion = input.getString("nonce") == round.getString("nonce")
         require(sameRound && sameQuestion) { "题目已更新，请重新加载" }
-        if (student && round.getString("mode") != "practice" && (blocked == "schedule" || blocked == "rounds")) {
+        if (round.getString("mode") != "practice" && (blocked == "schedule" || blocked == "rounds")) {
             return JSONObject().put("blocked", blocked)
         }
         val question = round.getJSONObject("question")
         val type = question.optString("type", "single")
-        if (verdict == null && (type == "subjective" || input.optString("drawing").isNotEmpty())) {
-            return submitReview(round, question, input)
-        }
-        val mark = RoundRules.mark(question, input, verdict)
+        require(type != "subjective") { "题目已更新，请重新加载" }
+        val mark = RoundRules.mark(question, input)
         val correct = mark.correct
         return atomic {
-            round.remove("pendingReview")
             val rules = round.getJSONObject("rules")
             val wasExtra = round.optBoolean("extra")
             val mode = round.getString("mode")
             val extraLeft = updatePractice(rules, correct, wasExtra)
             val progress = RoundRules.advance(round, correct, extraLeft)
             val questionId = question.getString("id")
-            val progressScore = quality ?: if (correct) 4 else 1
+            val progressScore = if (correct) 4 else 1
             store.recordProgress(questionId, progressScore)
             val answerEvent = JSONObject().apply {
                 put("qid", questionId)
@@ -203,8 +153,7 @@ class LearningEngine(private val store: LocalStore) {
             val result = JSONObject().apply {
                 put("correct", correct)
                 put("correctIndices", mark.indices)
-                put("answerText", if (question.optString("type") == "subjective")
-                    question.optString("modelAnswer") else mark.answerText)
+                put("answerText", mark.answerText)
                 put("tip", question.optString("tip"))
                 put("finished", progress.finished)
                 put("passed", progress.finished && progress.passed)
@@ -258,28 +207,5 @@ class LearningEngine(private val store: LocalStore) {
         return pool + added
     }
 
-    private fun submitReview(round: JSONObject, question: JSONObject, input: JSONObject): JSONObject {
-        val image = input.optString("drawing")
-        require(image.isNotEmpty() || input.optString("text").isNotBlank()) { "请先作答" }
-        if (image.isNotEmpty()) {
-            require(image.length <= 2_000_000 && image.startsWith("data:image/png;base64,")) {
-                "手写图片格式不正确或过大"
-            }
-        }
-        val ticket = UUID.randomUUID().toString()
-        atomic {
-            val record = JSONObject().apply {
-                put("id", ticket)
-                put("ts", System.currentTimeMillis())
-                put("state", "pending")
-                put("input", input)
-                put("question", question)
-                put("feedback", "等待批改")
-            }
-            store.saveReview(record)
-            saveRound(round.put("pendingReview", ticket))
-            store.logEvent("review_submitted", JSONObject().put("id", ticket))
-        }
-        return JSONObject().put("status", status()).put("reviewId", ticket).put("pending", true)
-    }
+
 }

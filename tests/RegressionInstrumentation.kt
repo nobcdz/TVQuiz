@@ -35,7 +35,9 @@ class RegressionInstrumentation : Instrumentation() {
             }
             isolated.deleteDatabase(LocalStore.DATABASE_NAME)
             val store = LocalStore(isolated)
-            checkOptionalServices(store)
+            check(store.config().getString("curriculumGrade") == "一年级")
+            check(store.config().getInt("questionTerm") == 1)
+            checkOptionalServices()
             checkViewingGuardPolicy()
             checkViewingAllowance(store)
             checkRoundRules()
@@ -48,10 +50,16 @@ class RegressionInstrumentation : Instrumentation() {
                 .put(item("wrong-grade", "八年级", 1, 1))
                 .put(item("wrong-term", "七年级", 2, 1))
                 .put(item("future-unit", "七年级", 1, 2)))
-            store.saveConfig(JSONObject().put("allDay", true).put("dailyMinutes", 480)
+            store.saveConfig(JSONObject().put("curriculumGrade", "七年级").put("questionTerm", 0)
+                .put("allDay", true).put("dailyMinutes", 480)
                 .put("questionsPerRound", 1).put("sessionMinutes", 10).put("playMode", "streak")
                 .put("wrongThreshold", 1).put("extraQuestions", 1).put("mathUnit", 1))
             check(store.questions(limit = 20, forLearning = true).length() == 4) { "Grade filtering excluded another term or unit" }
+            val firstTerm = JSONObject().put("curriculumGrade", "七年级").put("questionTerm", 1)
+            val firstTermQuestions = store.questions(limit = 20, forLearning = true, curriculum = firstTerm)
+            check(firstTermQuestions.length() == 3 && (0 until firstTermQuestions.length()).all {
+                firstTermQuestions.getJSONObject(it).getInt("term") == 1
+            })
             val duplicate = item("eligible-copy", "七年级", 1, 1).put("q", "eligible1")
             check(store.importQuestions(JSONArray().put(duplicate)) == 0) { "Import duplicated an existing stem" }
             check(store.importQuestions(JSONArray().put(item("hard-import", "九年级", 2, 1).put("difficulty", "难"))) == 1)
@@ -68,7 +76,10 @@ class RegressionInstrumentation : Instrumentation() {
             val wrong = answer(round, false)
             val nextUnseen = wrong.getJSONObject("next").getJSONObject("question").getString("id")
             check(nextUnseen != round.getJSONObject("question").getString("id"))
-            check(store.questions(limit = 1, forLearning = true, spaced = true).getJSONObject(0).getString("id") == nextUnseen)
+            val ordered = store.questions(limit = 20, forLearning = true, spaced = true)
+            check((0 until ordered.length() - 1).any { ordered.getJSONObject(it).getString("id") == nextUnseen })
+            check(ordered.getJSONObject(ordered.length() - 1).getString("id") ==
+                round.getJSONObject("question").getString("id")) { "Seen questions should follow unseen questions" }
             check(wrong.getJSONObject("status").getInt("extraPool") == 1) { "Wrong answer must add one practice question" }
             answer(round, false)
             check(engine.status().getInt("extraPool") == 1) { "Duplicate submission counted twice" }
@@ -131,26 +142,49 @@ class RegressionInstrumentation : Instrumentation() {
             check(family.engine(2).answer(JSONObject()).getString("blocked") == "quota")
             check(com.nobcdz.tvquiz.GateService.isMiTvPlayback("com.mitv.tvhome.DetailsActivity"))
             check(!com.nobcdz.tvquiz.GateService.isMiTvPlayback("com.mitv.tvhome.MainActivityUserMode"))
-            checkReviewSettlement(second)
             store.close()
             isolated.deleteDatabase(LocalStore.DATABASE_NAME)
             val fresh = LocalStore(isolated)
             check(fresh.countQuestions() == 0)
+            val seed = targetContext.assets.open("questions.json").bufferedReader().use { JSONArray(it.readText()) }
+            val replacement = (0 until seed.length()).asSequence().map(seed::getJSONObject)
+                .first { it.has("retiredQuestion") }
+            val retired = replacement.getJSONObject("retiredQuestion")
+                .put("level", replacement.getString("level")).put("subject", replacement.getString("subject"))
+            fresh.upsertQuestion(retired)
             SeedAssets.ensureQuestions(targetContext, fresh)
-            check(fresh.countQuestions() == 5004)
+            check(fresh.countQuestions() == 10035)
+            val exportedIds = mutableSetOf<String>()
+            val exportedStems = mutableSetOf<Triple<String, String, String>>()
+            val whitespace = Regex("""\s+""")
+            var afterId = ""
+            while (true) {
+                val page = fresh.questions(limit = 500, afterId = afterId)
+                if (page.length() == 0) break
+                for (index in 0 until page.length()) {
+                    val question = page.getJSONObject(index)
+                    val id = question.getString("id")
+                    check(id > afterId && exportedIds.add(id))
+                    check(exportedStems.add(Triple(question.getString("level"), question.getString("subject"),
+                        question.getString("q").trim().replace(whitespace, " "))))
+                    afterId = id
+                }
+            }
+            check(exportedIds.size == fresh.countQuestions())
+            check(retired.getString("id") !in exportedIds)
             val counts = fresh.questionCounts()
-            check((0 until counts.length()).sumOf { counts.getJSONObject(it).getInt("count") } == 5004)
+            check((0 until counts.length()).sumOf { counts.getJSONObject(it).getInt("count") } == 10035)
             check((0 until counts.length()).sumOf {
                 val row = counts.getJSONObject(it)
                 if (row.getString("level") == "幼儿园") row.getInt("count") else 0
-            } == 79)
+            } == 437)
             val preschool = JSONObject().put("curriculumGrade", "幼儿园")
-            check(fresh.questions(limit = 100, forLearning = true, curriculum = preschool).length() == 79)
+            check(fresh.questions(limit = 500, forLearning = true, curriculum = preschool).length() == 437)
             val sample = fresh.questions(limit = 1, level = "一年级").getJSONObject(0)
             fresh.deleteQuestion(sample.getString("id"))
             fresh.set("builtin_bank_version", "previous")
             SeedAssets.ensureQuestions(targetContext, fresh)
-            check(fresh.countQuestions() == 5003) { "Deleted builtin question reappeared" }
+            check(fresh.countQuestions() == 10034) { "Deleted builtin question reappeared" }
             checkLanContract(targetContext, fresh)
             fresh.close()
             checkParentCredentials()
@@ -161,28 +195,6 @@ class RegressionInstrumentation : Instrumentation() {
             output.putString("stream", "FAIL — " + android.util.Log.getStackTraceString(error))
             finish(android.app.Activity.RESULT_CANCELED, output)
         }
-    }
-
-    private fun checkReviewSettlement(store: LocalStore) {
-        store.set("used_ms", "0")
-        store.set("active_round", "")
-        store.saveConfig(JSONObject().put("playMode", "practice")
-            .put("curriculumGrade", "九年级").put("curriculumTerm", 1))
-        store.upsertQuestion(JSONObject().put("id", "fixture-subjective")
-            .put("subject", "语文").put("level", "九年级").put("term", 1).put("unit", 1)
-            .put("type", "subjective").put("q", "写下你的答案"))
-        val engine = LearningEngine(store)
-        val round = engine.start()
-        val submitted = engine.answer(JSONObject().put("roundId", round.getString("id"))
-            .put("nonce", round.getString("nonce")).put("text", "测试答案"))
-        val id = submitted.getString("reviewId")
-        check(submitted.getBoolean("pending"))
-        val graded = engine.grade(id, 86.0, "通过", "fixture")
-        check(graded.getJSONObject("result").getBoolean("correct"))
-        check(engine.grade(id, 10.0, "", "fixture").getDouble("score") == 86.0)
-        check(engine.start().getBoolean("reviewed"))
-        engine.acknowledgeReview(id)
-        check(!engine.start().optBoolean("reviewed"))
     }
 
     private fun checkLearningRecords(context: Context, store: LocalStore) {
@@ -209,13 +221,13 @@ class RegressionInstrumentation : Instrumentation() {
     private fun checkRoundRules() {
         val rules = com.nobcdz.tvquiz.RoundRules
         val text = JSONObject().put("type", "text").put("answers", JSONArray().put("AB CD"))
-        check(rules.mark(text, JSONObject().put("text", "ＡＢ  cd"), null).correct)
+        check(rules.mark(text, JSONObject().put("text", "ＡＢ  cd")).correct)
         val multiple = JSONObject().put("type", "multiple")
             .put("a", JSONArray().put("A").put("B").put("C"))
             .put("correctIndices", JSONArray().put(0).put(2))
-        check(rules.mark(multiple, JSONObject().put("selections", JSONArray().put(2).put(0)), null).correct)
+        check(rules.mark(multiple, JSONObject().put("selections", JSONArray().put(2).put(0))).correct)
         check(runCatching {
-            rules.mark(multiple, JSONObject().put("selections", JSONArray().put(3)), null)
+            rules.mark(multiple, JSONObject().put("selections", JSONArray().put(3)))
         }.isFailure)
         val round = JSONObject().put("question", multiple.put("tip", "private"))
             .put("rules", JSONObject().put("passRatio", 1.0))
@@ -224,6 +236,14 @@ class RegressionInstrumentation : Instrumentation() {
         check(!public.has("rules") && !public.getJSONObject("question").has("correctIndices"))
         check(!public.getJSONObject("question").has("tip") && multiple.has("correctIndices"))
         check(!rules.advance(round, correct = true, extraLeft = 0).finished)
+        round.put("mode", "streak").put("target", 2).put("correct", 0).put("answered", 0)
+        check(!rules.advance(round, correct = true, extraLeft = 0).done)
+        check(!rules.advance(round, correct = false, extraLeft = 1).done)
+        check(round.getInt("correct") == 1)
+        check(rules.advance(round, correct = true, extraLeft = 1).done)
+        round.put("extra", true)
+        check(rules.advance(round, correct = true, extraLeft = 0).finished)
+        check(round.getInt("correct") == 2)
     }
 
     private fun checkViewingAllowance(store: LocalStore) {
@@ -352,7 +372,7 @@ class RegressionInstrumentation : Instrumentation() {
         }
     }
 
-    private fun checkOptionalServices(store: LocalStore) {
+    private fun checkOptionalServices() {
         val update = com.nobcdz.tvquiz.Updater
         val release = JSONObject().put("tag_name", "v1.2.0").put("body", "[force]")
             .put("assets", JSONArray()
@@ -368,17 +388,6 @@ class RegressionInstrumentation : Instrumentation() {
         release.getJSONArray("assets").remove(2)
         check(update.decodeRelease(release, "1.1.9") == null)
 
-        val grading = com.nobcdz.tvquiz.GradingService
-        val config = grading.save(store, JSONObject().put("mode", "ai").put("apiKey", "test-key"))
-        check(config.getBoolean("hasKey") && !config.has("apiKey"))
-        val payload = grading.requestBody(config, JSONObject().put("q", "test"), "answer", "data:image/png;base64,AA==")
-        check(payload.getJSONArray("messages").getJSONObject(1).getJSONArray("content").length() == 2)
-        val raw = JSONObject().put("choices", JSONArray().put(JSONObject().put("message",
-            JSONObject().put("content", """```json
-{"score":85}
-```"""))))
-        check(grading.decodeResult(raw.toString()).getInt("score") == 85)
-        store.set("grading_settings", "{}")
     }
 
     private fun checkParentCredentials() {

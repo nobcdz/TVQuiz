@@ -39,15 +39,15 @@ internal class LanEndpoints(
             list(bank.questions(it.request.param("subject"), it.request.param("level"), it.intParam("limit", 500)))
         },
         "GET /api/questions/counts" to Route(Role.PARENT) { list(bank.questionCounts()) },
+        "GET /api/questions/export" to Route(Role.PARENT) {
+            list(bank.questions(it.request.param("subject"), it.request.param("level"), 500,
+                afterId = it.request.param("after").orEmpty()))
+        },
         "POST /api/questions" to Route(Role.PARENT, ::saveQuestions),
         "GET /api/history" to Route(Role.AUTHENTICATED) { list(it.child.historyDays(it.intParam("days", 7))) },
         "GET /api/events" to Route(Role.AUTHENTICATED) { list(it.child.recentEvents(it.intParam("limit", 50))) },
-        "GET /api/grading" to Route(Role.AUTHENTICATED) { LanReply.json(GradingService.settings(it.child)) },
-        "PUT /api/grading" to Route(Role.PARENT) { LanReply.json(GradingService.save(it.child, it.input())) },
-        "GET /api/reviews" to Route(Role.AUTHENTICATED) { list(it.child.reviews(it.request.param("state") ?: "pending")) },
         "POST /api/quiz/start" to Route(Role.TV) { LanReply.json(household.start()) },
         "POST /api/quiz/answer" to Route(Role.TV) { LanReply.json(household.answer(it.input())) },
-        "POST /api/quiz/review" to Route(Role.TV) { LanReply.json(household.acknowledgeReview(it.input())) },
         "POST /api/event" to Route(Role.AUTHENTICATED, ::studyEvent)
     )
 
@@ -86,8 +86,6 @@ internal class LanEndpoints(
     private fun prefixRoute(request: LanRequest): Route? = when {
         request.method == "DELETE" && request.path.startsWith("/api/questions/") ->
             Route(Role.PARENT) { ok(bank.deleteQuestion(Uri.decode(it.request.path.substringAfter("/api/questions/")))) }
-        request.method == "POST" && request.path.startsWith("/api/reviews/") ->
-            Route(Role.PARENT, ::review)
         else -> null
     }
 
@@ -165,19 +163,6 @@ internal class LanEndpoints(
         } catch (e: IllegalArgumentException) {
             LanReply.json(JSONObject().put("error", "bad_question").put("message", e.message.orEmpty()))
         }
-    }
-
-    private fun review(call: Call): LanReply {
-        val path = call.request.path.substringAfter("/api/reviews/")
-        val id = Uri.decode(path.substringBefore('/'))
-        if (path.endsWith("/retry")) {
-            require(call.child.review(id) != null) { "题目不存在" }
-            GradingService.enqueue(call.child, call.engine, id)
-            return ok()
-        }
-        val decision = call.input()
-        return LanReply.json(call.engine.grade(id, decision.getDouble("score"),
-            decision.optString("feedback"), "parent_or_agent"))
     }
 
     private fun studyEvent(call: Call): LanReply {

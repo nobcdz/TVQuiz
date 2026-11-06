@@ -78,7 +78,6 @@ class Household(context: Context, first: LocalStore) {
         val ids = viewers()
         val states = ids.associateWith { engine(it).status() }
         return ids.firstOrNull { states.getValue(it).getString("reason") in listOf("quota", "schedule", "rounds") }
-            ?: ids.firstOrNull { store(it).get("review_feedback").isNotEmpty() }
             ?: ids.firstOrNull { states.getValue(it).getString("reason").isNotEmpty() }
             ?: ids.first()
     }
@@ -101,7 +100,6 @@ class Household(context: Context, first: LocalStore) {
             .put("viewingTogether", selection == "both").put("viewerSelection", selection)
     }
 
-    @Synchronized fun hasFeedback(): Boolean = viewers().any { store(it).get("review_feedback").isNotEmpty() }
 
     @Synchronized fun consume(milliseconds: Long, expectedSelection: String = selection) {
         if (selection != expectedSelection) return
@@ -133,15 +131,9 @@ class Household(context: Context, first: LocalStore) {
         val id = input.optInt("childId", target())
         require(id in viewers()) { "观看档案已切换，请重新打开题目" }
         val result = engine(id).answer(input)
-        if (result.optBoolean("pending")) GradingService.enqueue(store(id), engine(id), result.getString("reviewId"))
         return decorate(result, id)
     }
 
-    @Synchronized fun acknowledgeReview(input: JSONObject): JSONObject {
-        val id = input.optInt("childId", target())
-        require(id in viewers()) { "观看档案已切换，请重新打开题目" }
-        return decorate(engine(id).acknowledgeReview(input.getString("reviewId")), id)
-    }
 
     private fun decorate(result: JSONObject, id: Int): JSONObject {
         if (result.has("error")) return result
