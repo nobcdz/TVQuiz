@@ -61,7 +61,7 @@ class ParentActivity : Activity() {
             setBackgroundColor(0xFF111428.toInt())
         }
         val heading = if (changing) "修改管理密码" else if (setup) "设置管理密码" else "家长验证"
-        content.addView(label("TV QUIZ  /  家长管理", 13f))
+        content.addView(label("TVQuiz · 魔改电视答题系统", 13f))
         content.addView(label(heading, 28f))
         content.addView(label(if (setup) "请输入 6–64 位管理密码，两次输入须一致。" else "输入密码以验证家长身份。", 16f))
         val password = passwordField(if (changing) "新密码" else "管理密码")
