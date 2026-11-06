@@ -42,7 +42,7 @@
 ```powershell
 $device = '<电视 IP>:<ADB 端口>'
 adb connect $device
-adb -s $device install -r ".\TVQuiz-0.3.35.apk"
+adb -s $device install -r ".\TVQuiz-0.3.36.apk"
 adb -s $device shell am start -n com.nobcdz.tvquiz/.MainActivity
 ```
 
