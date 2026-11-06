@@ -1,0 +1,11 @@
+/.gradle/
+/.idea/
+/local.properties
+**/build/
+/build/
+**/local.properties
+**/*.jks
+**/*.keystore
+**/*.apk
+**/.env
+/app/native/app/src/main/assets/

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="theme-color" content="#08080A">
+<title>魔改电视答题系统</title>
+<link rel="stylesheet" href="assets/css/stage.css">
+<link rel="stylesheet" href="assets/css/aurora.css">
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+<header class="topbar" aria-label="应用与设备状态">
+  <div class="brand"><img class="brand-mark" src="assets/mark.svg" alt=""><span class="brand-text">魔改电视答题系统</span></div>
+  <div class="topright"><span class="pill" id="topPill">正在连接…</span><span class="clock" id="clock"></span></div>
+</header>
+<div class="update-tip" id="updateTip"><span class="update-text" id="updateText"></span><button class="update-btn" id="updateGo">更新</button><button class="update-close" id="updateClose">×</button></div>
+<main id="stage">
+  <section class="screen" id="screen-mode" aria-labelledby="viewingTitle">
+    <div class="mode-wrap">
+      <div class="mode-art" aria-hidden="true"><img src="assets/orbit-stage.svg" alt=""></div>
+      <div class="eyebrow">TV QUIZ / 开机选择</div>
+      <h1 id="viewingTitle" class="mode-title">选择<span>观看模式</span></h1>
+      <p class="mode-description">孩子选择自己的档案，家长通过密码验证进入。</p>
+      <div class="mode-cards" id="modeCards">
+        <button class="mode-card parent-card focusable" id="parentModeCard" data-action="parent"><span class="mode-number">PARENT / 自由观看</span><strong>家长模式</strong><span>验证后自由观看</span><i>验证身份 →</i></button>
+      </div>
+      <p class="mode-footer">方向键选择 · 确认键进入</p>
+      <aside class="boot-pair" aria-label="手机家长管理">
+        <span class="boot-pair-label">手机家长管理</span>
+        <div id="bootQr" class="boot-qr"></div>
+        <p id="bootPairHint">连接同一网络后扫码</p>
+      </aside>
+    </div>
+  </section>
+  <section class="screen" id="screen-quiz" aria-labelledby="qMode">
+    <div class="quiz-wrap">
+      <div class="quiz-head">
+        <div class="crumb"><span class="crumb-main" id="qMode">学习任务</span></div>
+        <div class="quiz-metrics">
+          <span class="daily-time">今日剩余 <strong id="dailyTime">--:--</strong></span>
+          <div class="counter"><b id="qIndex">0</b><i id="qTotal"></i></div>
+        </div>
+      </div>
+      <div class="quiz-body" id="quizBody">
+        <div class="quiz-content">
+        <h1 class="question" id="qText">加载中…</h1>
+        <div class="options" id="qOptions"></div>
+        <div class="pool-status" id="qPool"></div>
+        <div class="answer-feedback" id="answerFeedback" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+      <div class="quiz-foot"><div class="dots-progress" id="qDots"></div><div class="hint">方向键选择 · OK 确认</div></div>
+    </div>
+  </section>
+  <section class="screen" id="screen-lock" aria-labelledby="lockTitle">
+    <div class="lock-wrap">
+      <div class="lock-status">
+        <div class="lock-badge" id="lockIcon"></div>
+        <h1 class="lock-title" id="lockTitle"></h1>
+        <p class="lock-desc" id="lockDesc"></p>
+        <div class="lock-actions" id="lockActions"></div>
+        <p class="lock-note" id="lockNote"></p>
+      </div>
+      <figure class="daily-poem" id="dailyPoem" hidden>
+        <div class="poem-label">每日一诗</div>
+        <blockquote id="poemVerse"></blockquote>
+        <figcaption id="poemCredit"></figcaption>
+      </figure>
+    </div>
+  </section>
+  <section class="screen" id="screen-pair" aria-labelledby="pairTitle">
+    <div class="pair-layout">
+      <div class="pair-controls">
+        <div class="eyebrow">电视端设置</div>
+        <h1 id="pairTitle">家长管理</h1>
+        <p class="pair-intro">调整这台电视的出题范围和管理权限。</p>
+        <div class="pair-actions">
+          <button class="pair-action focusable" data-action="pair-curriculum"><span class="pair-action-no">01</span><span><strong>孩子档案</strong><small>切换观看者，设置各自的出题进度</small></span><i aria-hidden="true">›</i></button>
+          <button class="pair-action focusable" data-action="pair-permissions"><span class="pair-action-no">02</span><span><strong>权限设置</strong><small>管理观看守护所需权限</small></span><i aria-hidden="true">›</i></button>
+          <button class="pair-action focusable" data-action="pair-password"><span class="pair-action-no">03</span><span><strong>修改密码</strong><small>更新家长管理密码</small></span><i aria-hidden="true">›</i></button>
+          <button class="pair-action focusable" data-action="pair-protection"><span class="pair-action-no">04</span><span><strong>防卸载保护</strong><small>查看或管理系统级保护</small></span><i aria-hidden="true">›</i></button>
+        </div>
+        <button class="pair-exit focusable" id="pairExit" data-action="quiz">返回</button>
+      </div>
+      <div class="pair-connect">
+        <div class="eyebrow">手机端管理</div>
+        <h2>扫码连接</h2>
+        <div class="pair-qr" id="pairQr"></div>
+        <p class="pair-steps">手机连接同一 Wi-Fi，扫码后输入管理密码。</p>
+        <div class="pair-address" id="pairUrl"></div>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="assets/js/qrcode.min.js"></script>
+<script src="assets/js/math.js"></script>
+<script src="assets/js/connection.js"></script>
+<script src="assets/js/remote.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
+
+
