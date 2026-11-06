@@ -18,7 +18,7 @@
 
 ## 安装与首次使用
 
-1. 从项目的 **Releases** 下载电视版 APK（如已发布），或按下文从源码构建。通过 U 盘或 ADB 安装。
+1. 从 [GitHub Releases](https://github.com/nobcdz/TVQuiz/releases) 下载电视版 APK，或按下文从源码构建。通过 U 盘或 ADB 安装。
 2. 在电视上打开应用，设置家长管理密码，按引导开启观看守护所需权限。可开启无障碍服务，或按设备支持情况开启悬浮窗和使用情况访问。
 3. 在开机页选择孩子档案或家长模式。青少年模式会按该档案的当前状态进入答题、锁屏或电视桌面。
 4. 用手机扫开机页的家长管理二维码，输入管理密码登录。也可在电视上连续按五次遥控器 **↑** 打开家长验证入口。
@@ -26,6 +26,17 @@
 初始规则为答对 **1 道题**获得 **10 分钟**观看时长，每答错一次增加一道加练。默认每日上限为 **480 分钟、100 轮**，全天可用。家长可以按孩子分别修改这些设置。
 
 家长管理页通过局域网 HTTP 提供，请在可信家庭网络内使用。
+
+### 通过 ADB 安装下载的 APK
+
+在电脑上安装 Android SDK Platform-Tools，在电视上启用 ADB 调试，并将两台设备连接到同一局域网。在 APK 所在目录运行以下命令，将 `<电视 IP>:<ADB 端口>` 和 APK 文件名替换为实际值。电视弹出授权提示时，确认允许调试。
+
+```powershell
+$device = '<电视 IP>:<ADB 端口>'
+adb connect $device
+adb -s $device install -r ".\TVQuiz-0.3.34-debug.apk"
+adb -s $device shell am start -n com.nobcdz.tvquiz/.MainActivity
+```
 
 ## 题库
 
