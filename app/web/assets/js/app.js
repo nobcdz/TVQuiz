@@ -126,6 +126,11 @@
   }
 
   function resetMark() {
+    state.mark = null;
+    $('markNext').hidden = true;
+    $('markNext').classList.remove('focusable');
+    $('qOptions').hidden = false;
+    $('quizHint').textContent = '方向键选择 · OK 确认';
     var banner = $('answerFeedback');
     banner.textContent = '';
     banner.classList.remove('visible');
@@ -142,6 +147,7 @@
     $('qText').textContent = question.q;
     var mode = {streak:'连续答对', practice:'自由练习', round:'本组任务'};
     var context = [task.childName ? '请 ' + task.childName + ' 作答' : '', question.level, question.subject];
+    if (question.topic) context.push('知识点：' + question.topic);
     context.push(task.extra ? '加练任务' : mode[task.mode] || mode.round);
     context.push('难度 ' + (question.difficulty >= 4 ? '难' : question.difficulty === 3 ? '中' : '易'));
     $('qMode').textContent = context.filter(Boolean).join(' · ');
@@ -251,28 +257,53 @@
         else lock(reply.blocked);
         return;
       }
-      showMark(reply, choices, Boolean(input));
+      showMark(reply, choices, task.question);
+      if (!reply.correct) {
+        state.mark = reply;
+        $('markNext').hidden = false;
+        $('markNext').classList.add('focusable');
+        $('quizHint').textContent = '↑↓ 阅读解析 · OK 继续';
+        focusDefault();
+        return;
+      }
       nextTimer = window.setTimeout(function () {
         if (state.round !== task || state.screen !== 'quiz') return;
         state.busy = false;
         continueAfterMark(reply);
-      }, reply.correct ? 600 : 1500);
+      }, 600);
     });
   }
 
-  function showMark(reply, choices, written) {
+  function showMark(reply, choices, question) {
     state.learning = reply.status;
     pill();
     var correct = reply.correctIndices || [];
     all('#qOptions [data-opt]').forEach(function (option) {
       var index = Number(option.getAttribute('data-opt'));
-      if (correct.indexOf(index) !== -1) option.classList.add('right');
-      else if (choices.indexOf(index) !== -1) option.classList.add('wrong');
+      if (correct.indexOf(index) !== -1) {
+        option.classList.add('right');
+        appendText(option, 'span', '✓ 正确', 'option-result');
+      } else if (choices.indexOf(index) !== -1) {
+        option.classList.add('wrong');
+        appendText(option, 'span', '× 选错', 'option-result');
+      }
     });
-    if (written && !reply.correct) toast('答案：' + reply.answerText);
-    else if (reply.tip) toast(reply.tip);
     var banner = $('answerFeedback');
     banner.textContent = reply.correct ? '✓ 回答正确' : '× 回答错误';
+    if (reply.correct && reply.tip) toast(reply.tip);
+    if (!reply.correct) {
+      var answer = reply.answerText || correct.map(function (index) { return question.a[index]; }).join('、');
+      if (answer) appendText(banner, 'div', '正确答案：' + answer);
+      appendText(banner, 'div', reply.tip ? '解析：' + reply.tip : '这道题还没有解析。');
+      if (window.SOTV_MATH) window.SOTV_MATH(banner);
+      var options = $('qOptions');
+      options.hidden = !options.querySelector('[data-opt]');
+      all('#qOptions .focusable').forEach(function (control) {
+        control.classList.remove('focusable', 'focused');
+      });
+      all('#qOptions [data-action="submit"]').forEach(function (control) { control.hidden = true; });
+      $('quizBody').scrollTop = 0;
+    }
     banner.classList.add('visible');
     banner.classList.toggle('wrong', !reply.correct);
   }
@@ -318,7 +349,9 @@
     state.reviewed = true;
     state.review = reply;
     var mark = reply.result;
-    lockCard('批改完成 · ' + reply.score + ' 分', reply.feedback || '已保存本次批改结果',
+    var details = [reply.feedback, mark.answerText ? '参考答案：' + mark.answerText : '',
+      mark.tip ? '解析：' + mark.tip : ''].filter(Boolean).join('\n');
+    lockCard('批改完成 · ' + reply.score + ' 分', details || '已保存本次批改结果',
       mark.correct ? '✓' : '✎', mark.correct ? '本题通过' : '查看反馈后继续练习',
       mark.finished && mark.passed ? '继续使用' : '继续答题', 'review-continue');
     if (window.SOTV_MATH) window.SOTV_MATH($('lockDesc'));
@@ -399,6 +432,13 @@
     var option = control.getAttribute('data-opt');
     if (option !== null) { choose(Number(option)); return; }
     var action = control.getAttribute('data-action') || '';
+    if (action === 'mark-next' && state.mark) {
+      var result = state.mark;
+      resetMark();
+      state.busy = false;
+      continueAfterMark(result);
+      return;
+    }
     if (action.slice(0, 5) === 'pair-' && state.screen === 'pair') {
       nativeCall('parentPanelAction', [action.slice(5)]);
       return;
@@ -492,6 +532,7 @@
   function route() {
     var epoch = ++routeEpoch;
     window.clearTimeout(nextTimer);
+    resetMark();
     state.busy = false;
     var path = location.hash.slice(2).split('?')[0];
     if (path === 'pair') { pair(); return; }

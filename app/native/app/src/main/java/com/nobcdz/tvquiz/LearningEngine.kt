@@ -203,7 +203,8 @@ class LearningEngine(private val store: LocalStore) {
             val result = JSONObject().apply {
                 put("correct", correct)
                 put("correctIndices", mark.indices)
-                put("answerText", mark.answerText)
+                put("answerText", if (question.optString("type") == "subjective")
+                    question.optString("modelAnswer") else mark.answerText)
                 put("tip", question.optString("tip"))
                 put("finished", progress.finished)
                 put("passed", progress.finished && progress.passed)

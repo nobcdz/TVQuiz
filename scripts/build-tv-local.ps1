@@ -32,7 +32,7 @@ package com.nobcdz.tvquiz
 object BuildConfig {
     const val DEBUG = true
     const val FLAVOR = "tv"
-    const val VERSION_NAME = "0.3.36"
+    const val VERSION_NAME = "0.3.37"
 }
 '@ | Set-Content -Encoding utf8 "$out/generated/com/nobcdz/tvquiz/BuildConfig.kt"
 $manifest = (Get-Content "$module/src/main/AndroidManifest.xml" -Raw).
@@ -41,7 +41,7 @@ $manifest = (Get-Content "$module/src/main/AndroidManifest.xml" -Raw).
     Replace('android:allowBackup="false"', 'android:allowBackup="false" android:debuggable="true"')
 $manifest | Set-Content -Encoding utf8 "$out/AndroidManifest.xml"
 & "$tools/aapt2.exe" compile --dir "$module/src/main/res" -o "$out/res.zip"
-& "$tools/aapt2.exe" link -I $android --manifest "$out/AndroidManifest.xml" --java "$out/generated" --min-sdk-version 21 --target-sdk-version 34 --version-code 46 --version-name 0.3.36 -A $assets "$out/res.zip" -o "$out/base.apk"
+& "$tools/aapt2.exe" link -I $android --manifest "$out/AndroidManifest.xml" --java "$out/generated" --min-sdk-version 21 --target-sdk-version 34 --version-code 47 --version-name 0.3.37 -A $assets "$out/res.zip" -o "$out/base.apk"
 # Windows aapt2 may retain backslashes in nested asset entry names.
 # AssetManager expects forward slashes on the Android device.
 Add-Type -AssemblyName System.IO.Compression.FileSystem

@@ -381,12 +381,16 @@ antonyms.forEach((words, gradeIndex) => {
     });
 });
 
+require('./expand-builtin-bank.cjs')(add);
+require('./extend-builtin-bank.cjs')(add);
+
 const seen = new Set();
 questions.forEach(question => {
     const key = question.level + '/' + question.term + '/' + question.q;
     if (seen.has(key)) throw new Error('Duplicate question: ' + key);
     seen.add(key);
-    if (question.a[question.k] == null) throw new Error('Invalid answer');
+    if (!question.topic.trim() || !question.tip.trim() || question.a[question.k] == null ||
+        new Set(question.a).size !== question.a.length) throw new Error('Incomplete question: ' + key);
 });
 fs.writeFileSync(path.join(root, 'data/seed.json'), JSON.stringify(questions, null, 2) + '\n');
 console.log('Built ' + questions.length + ' questions across 10 grade levels.');

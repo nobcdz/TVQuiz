@@ -126,8 +126,9 @@ html.tv-device body { background: #090a19; color: #f5f4ff; }
   box-shadow: 0 0 0 .35rem rgba(202,254,127,.21), 0 .8rem 2.5rem rgba(0,0,0,.27);
 }
 .tv-device .option.focused .letter { background: #273623; color: #ebffc3; }
-.tv-device .option.right { background: #153a2b; border-color: #8bf2bc; color: #dcffeb; }
-.tv-device .option.wrong { background: #46283f; border-color: #ff8faa; color: #ffe4ed; }
+.tv-device .option.right { background: #126347; border-color: #74f5b7; color: #f0fff8; }
+.tv-device .option.wrong { background: #8a2539; border-color: #ff8798; color: #fff4f5; }
+.option-result { margin-left: auto; padding-left: 1rem; white-space: nowrap; font-size: 1.8rem; }
 .tv-device .dots-progress, .tv-device .hint { font-size: 1.7rem; color: #c5c2dc; }
 .answer-feedback { display: none; }
 .tv-device .answer-feedback.visible {
@@ -135,7 +136,11 @@ html.tv-device body { background: #090a19; color: #f5f4ff; }
   background: #18392d; color: #b7ffda; border-left: .35rem solid #8bf2bc;
   -webkit-animation: answer-in .18s ease-out; animation: answer-in .18s ease-out;
 }
-.tv-device .answer-feedback.wrong { background: #3c2236; color: #ffc4d4; border-left-color: #ff8faa; }
+.tv-device .answer-feedback.wrong {
+  padding: 1.6rem 2rem; font-size: 2.5rem; line-height: 1.55;
+  background: #3c2236; color: #ffe0e9; border-left-color: #ff8faa;
+}
+.answer-feedback.wrong > div { margin-top: 1rem; white-space: pre-wrap; overflow-wrap: break-word; }
 @-webkit-keyframes answer-in { from { opacity: 0; -webkit-transform: translateY(.6rem); } to { opacity: 1; -webkit-transform: none; } }
 @keyframes answer-in { from { opacity: 0; transform: translateY(.6rem); } to { opacity: 1; transform: none; } }
 .tv-device .btn-primary, .tv-device .btn-primary.focused { background: #d3ff87; color: #1b2711; border-color: #ebffc5; }

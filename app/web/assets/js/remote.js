@@ -4,7 +4,9 @@
   function panel() { return document.querySelector('.screen.active'); }
   function controls() {
     var active = panel();
-    return active ? Array.prototype.slice.call(active.querySelectorAll('.focusable')) : [];
+    return active ? Array.prototype.filter.call(active.querySelectorAll('.focusable'), function (control) {
+      return control.getClientRects().length > 0;
+    }) : [];
   }
   function questionArea() {
     var active = panel();
@@ -28,7 +30,8 @@
   }
   function belowFold(control) {
     var area = questionArea();
-    if (!area || control.getBoundingClientRect().top < area.getBoundingClientRect().bottom) return false;
+    if (!area || !area.contains(control) ||
+        control.getBoundingClientRect().top < area.getBoundingClientRect().bottom) return false;
     area.scrollTop += Math.round(area.clientHeight * .75);
     return true;
   }
@@ -39,6 +42,10 @@
   function move(direction) {
     var axis = keys[direction], active = current();
     if (!axis) return;
+    if (active && active.id === 'markNext' && axis[1] && questionArea()) {
+      questionArea().scrollTop += axis[1] * Math.round(questionArea().clientHeight * .6);
+      return;
+    }
     var candidates = controls();
     if (!active) { select(candidates[0], false); return; }
     if (direction === 'down' && belowFold(active)) return;

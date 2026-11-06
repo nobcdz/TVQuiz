@@ -1,10 +1,10 @@
-# TVQuiz · 魔改电视答题系统
+# TVQuiz · 电视魔改答题系统
 
 **答题解锁看电视**
 
 孩子用遥控器答题，完成一轮就能解锁一段看电视的时间。比如连续答对 **5 道题**，就能回到电视桌面看 **10 分钟**。看完这一轮，如果今天还有额度，就可以继续答题。家长用手机扫码设置规则，自己看电视时可以切换到家长模式。
 
-**3,021 道内置题** · **幼儿园至九年级** · **Android TV，最低 Android 5.0（API 21）**
+**5,004 道内置题** · **幼儿园至九年级** · **Android TV，最低 Android 5.0（API 21）**
 
 [下载正式 APK](https://github.com/nobcdz/TVQuiz/releases/latest) · [图文使用手册](docs/USER_GUIDE.md) · [让 Agent 帮你安装](#使用-agent-辅助安装) · [常见问题](docs/USER_GUIDE.md#常见问题)
 
@@ -46,7 +46,7 @@
 ```powershell
 $device = '<电视 IP>:<ADB 端口>'
 adb connect $device
-adb -s $device install -r ".\TVQuiz-0.3.36.apk"
+adb -s $device install -r ".\TVQuiz-0.3.37.apk"
 adb -s $device shell am start -n com.nobcdz.tvquiz/.MainActivity
 ```
 
@@ -72,15 +72,15 @@ adb -s $device shell am start -n com.nobcdz.tvquiz/.MainActivity
 
 ## 题库
 
-内置 **3,021 道自编基础练习**，覆盖幼儿园和一至九年级。幼儿园题目包括数数、形状、颜色、动物、生活安全和英语启蒙。一至九年级包含数学计算与应用、英语词汇与语境、语文词语与阅读基础练习。自定义题填写年级即可参与该年级的出题。
+内置 **5,004 道自编基础练习**。幼儿园有 79 道，一至九年级每个年级有 540–549 道。内置题都有知识点和解析。答错时，电视会显示正确答案和解析，孩子看完后可按「看完了，继续」。
 
 | 数学 | 英语 | 语文 | 常识 |
 | ---: | ---: | ---: | ---: |
-| 1,993 | 582 | 436 | 10 |
+| 2,961 | 1,201 | 820 | 22 |
 
 以上为当前源码的题库数量，已发布 APK 的题量以对应版本为准。
 
-选定年级后，应用自动从该年级出题，优先抽取孩子还没做过的题。幼儿园有 42 道启蒙题。一至九年级可以练计算和应用题、词义辨析、英语词汇和语境填词。
+选定年级后，应用自动从该年级出题，优先抽取孩子还没做过的题。题库以数学练习为主，同时覆盖词语理解、阅读与表达、英语词汇和语境填词。幼儿园包含数数、形状、生活安全和英语启蒙。
 
 ### 不同年级会遇到什么题？
 
@@ -99,6 +99,7 @@ adb -s $device shell am start -n com.nobcdz.tvquiz/.MainActivity
   {
     "subject": "数学",
     "level": "七年级",
+    "topic": "有理数加法",
     "type": "single",
     "difficulty": "易",
     "q": "−3 + 5 等于多少？",

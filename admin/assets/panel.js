@@ -16,7 +16,7 @@
   ];
   const questionFields = [
     ['id','题目 ID（新增时留空）','text'], ['subject','学科',subjects],
-    ['level','年级',grades], ['difficulty','难度',1,5],
+    ['level','年级',grades], ['topic','知识点','text'], ['difficulty','难度',1,5],
     ['type','题型',[['single','单选'],['multiple','多选'],['boolean','判断'],['text','填空'],['subjective','主观']]],
     ['q','题干','textarea'], ['a','选项，每行一项','textarea'],
     ['k','正确选项序号（从 1 开始）',1,8], ['correctIndices','多选序号，用逗号分隔','text'],
@@ -169,12 +169,13 @@
     const query = new URLSearchParams({limit:'500'});
     if (filter.subject) query.set('subject', filter.subject);
     if (filter.level) query.set('level', filter.level);
-    const result = await api('questions?' + query);
+    const [result, counts] = await Promise.all([api('questions?' + query), api('questions/counts')]);
+    renderBankCounts(counts.items);
     if (JSON.stringify(filter) !== JSON.stringify(values($('filter')))) return;
     $('questionList').replaceChildren(...result.items.map(item => {
       const card = make('article');
       card.className = 'card';
-      card.append(make('strong', [item.subject,item.level || '未标注年级', '难度 ' + item.difficulty].join(' · ')),
+      card.append(make('strong', [item.subject,item.level || '未标注年级', item.topic || '未标注知识点', '难度 ' + item.difficulty].join(' · ')),
         make('p', item.q), action('编辑', () => { questionForm(item); $('question').scrollIntoView(); }),
         action('删除', async () => {
           if (!confirm('删除这道题？')) return;
@@ -185,6 +186,34 @@
     }));
     if (window.SOTV_MATH) window.SOTV_MATH($('questionList'));
     if (!result.items.length) $('questionList').append(make('p', '当前筛选下暂无题目。'));
+  }
+  function renderBankCounts(items) {
+    const levels = new Map(grades.map(grade => [grade, new Map()]));
+    const columns = new Set(subjects);
+    let total = 0;
+    for (const item of items) {
+      const level = item.level || '未标注年级';
+      const subject = item.subject || '未标注学科';
+      if (!levels.has(level)) levels.set(level, new Map());
+      const counts = levels.get(level);
+      counts.set(subject, (counts.get(subject) || 0) + item.count);
+      columns.add(subject);
+      total += item.count;
+    }
+    const table = make('table');
+    const header = table.createTHead().insertRow();
+    for (const label of ['年级', ...columns, '合计']) {
+      const cell = make('th', label); cell.scope = 'col'; header.append(cell);
+    }
+    const body = table.createTBody();
+    for (const [grade, counts] of levels) {
+      const row = body.insertRow();
+      const label = make('th', grade); label.scope = 'row'; row.append(label);
+      for (const subject of columns) row.insertCell().textContent = counts.get(subject) || 0;
+      row.insertCell().textContent = [...counts.values()].reduce((sum, count) => sum + count, 0);
+    }
+    $('bankTotal').textContent = '当前题库共 ' + total.toLocaleString('zh-CN') + ' 道题';
+    $('bankCounts').replaceChildren(table);
   }
   async function refreshReviews() {
     const profile = child, snapshot = generation;

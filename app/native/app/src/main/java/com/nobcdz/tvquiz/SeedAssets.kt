@@ -5,7 +5,7 @@ import org.json.JSONArray
 
 object SeedAssets {
     fun ensureQuestions(context: Context, store: LocalStore) {
-        val version = "tvquiz-rjb-2026-03-3"
+        val version = "tvquiz-rjb-2026-03-5"
         if (store.get("builtin_bank_version") == version) return
         val questions = context.assets.open("questions.json").bufferedReader().use { JSONArray(it.readText()) }
         val db = store.writableDatabase

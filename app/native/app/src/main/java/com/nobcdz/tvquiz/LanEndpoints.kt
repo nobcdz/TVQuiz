@@ -38,6 +38,7 @@ internal class LanEndpoints(
         "GET /api/questions" to Route(Role.AUTHENTICATED) {
             list(bank.questions(it.request.param("subject"), it.request.param("level"), it.intParam("limit", 500)))
         },
+        "GET /api/questions/counts" to Route(Role.PARENT) { list(bank.questionCounts()) },
         "POST /api/questions" to Route(Role.PARENT, ::saveQuestions),
         "GET /api/history" to Route(Role.AUTHENTICATED) { list(it.child.historyDays(it.intParam("days", 7))) },
         "GET /api/events" to Route(Role.AUTHENTICATED) { list(it.child.recentEvents(it.intParam("limit", 50))) },

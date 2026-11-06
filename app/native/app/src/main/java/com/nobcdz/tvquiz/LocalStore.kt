@@ -142,6 +142,17 @@ class LocalStore(context: Context, val childId: Int = 1, private val shared: Loc
         if (it.moveToFirst()) it.getInt(0) else 0
     }
 
+    fun questionCounts(): JSONArray = readableDatabase.rawQuery(
+        "SELECT level, subject, COUNT(*) FROM questions WHERE enabled=1 GROUP BY level, subject", null
+    ).use { rows ->
+        JSONArray().apply {
+            while (rows.moveToNext()) {
+                put(JSONObject().put("level", rows.getString(0).orEmpty())
+                    .put("subject", rows.getString(1).orEmpty()).put("count", rows.getInt(2)))
+            }
+        }
+    }
+
     fun upsertQuestion(item: JSONObject): String {
         val prompt = item.optString("q").trim()
         require(prompt.length in 1..5000) { "请填写题干" }

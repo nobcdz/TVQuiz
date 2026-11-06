@@ -41,12 +41,7 @@ internal class DeviceBridge(
     private fun address(): String = DeviceRuntime.pairingAddress(host).toString()
 
     @JavascriptInterface
-    fun chooseTeen(childId: Int): Boolean {
-        if (!attached || !ViewingMode.chooseTeen(host, childId)) return false
-        val mustStudy = !canReturnHome()
-        if (!mustStudy) exitToLauncher()
-        return mustStudy
-    }
+    fun chooseTeen(childId: Int): Boolean = attached && ViewingMode.chooseTeen(host, childId)
 
     @JavascriptInterface
     fun chooseParent() = ui {

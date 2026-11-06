@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <meta name="theme-color" content="#08080A">
-  <title>TVQuiz · 魔改电视答题系统</title>
+  <title>TVQuiz · 电视魔改答题系统</title>
 <link rel="stylesheet" href="assets/css/stage.css">
 <link rel="stylesheet" href="assets/css/aurora.css">
 </head>
 <body>
 <div class="bg" aria-hidden="true"></div>
 <header class="topbar" aria-label="应用与设备状态">
-  <div class="brand"><img class="brand-mark" src="assets/mark.svg" alt=""><span class="brand-text">魔改电视答题系统</span></div>
+  <div class="brand"><img class="brand-mark" src="assets/mark.svg" alt=""><span class="brand-text">电视魔改答题系统</span></div>
   <div class="topright"><span class="pill" id="topPill">正在连接…</span><span class="clock" id="clock"></span></div>
 </header>
 <div class="update-tip" id="updateTip"><span class="update-text" id="updateText"></span><button class="update-btn" id="updateGo">更新</button><button class="update-close" id="updateClose">×</button></div>
@@ -50,7 +50,7 @@
         <div class="answer-feedback" id="answerFeedback" role="status" aria-live="polite"></div>
         </div>
       </div>
-      <div class="quiz-foot"><div class="dots-progress" id="qDots"></div><div class="hint">方向键选择 · OK 确认</div></div>
+      <div class="quiz-foot"><div class="dots-progress" id="qDots"></div><button type="button" class="btn btn-primary" id="markNext" data-action="mark-next" hidden>看完了，继续</button><div class="hint" id="quizHint">方向键选择 · OK 确认</div></div>
     </div>
   </section>
   <section class="screen" id="screen-lock" aria-labelledby="lockTitle">
@@ -89,6 +89,7 @@
         <div class="pair-qr" id="pairQr"></div>
         <p class="pair-steps">手机连接同一 Wi-Fi，扫码后输入管理密码。</p>
         <div class="pair-address" id="pairUrl"></div>
+        <button class="pair-exit focusable" data-action="pair-bank">题库总览</button>
         <button class="pair-exit focusable" data-action="pair-update">检查更新</button>
       </div>
     </div>

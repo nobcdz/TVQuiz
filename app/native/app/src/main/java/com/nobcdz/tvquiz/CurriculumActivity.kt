@@ -1,77 +1,94 @@
 package com.nobcdz.tvquiz
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.os.Bundle
+import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import org.json.JSONObject
 
 class CurriculumActivity : Activity() {
-    private val grades = ViewingSettings.levels
-    private lateinit var config: JSONObject
-    private var focusedRow = "grade"
-    private val childId by lazy { intent.getIntExtra("child_id", 1).coerceIn(1, 2) }
-
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         DeviceRuntime.ensure(this)
-        config = DeviceRuntime.household.store(childId).config()
-        render()
+        val household = DeviceRuntime.household
+        val childId = intent.getIntExtra("child_id", 0).takeIf { it in 1..household.childCount() }
+        val current = childId?.let { household.store(it).config().getString("curriculumGrade") }
+        val rows = household.store(1).questionCounts()
+        val counts = (0 until rows.length()).map(rows::getJSONObject)
+        val pad = (24 * resources.displayMetrics.density).toInt()
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad, pad, pad)
+            setBackgroundColor(0xFF101A32.toInt())
+        }
+        fun label(text: String, size: Float) = TextView(this).apply {
+            this.text = text
+            textSize = size
+            setTextColor(0xFFEAF4FF.toInt())
+        }
+        content.addView(label("题库总览 · 共 ${counts.sumOf { it.getInt("count") }} 道", 28f))
+        val hint = childId?.let { "为 ${household.name(it)} 选择出题年级" } ?: "按方向键浏览，按确定选择出题年级"
+        content.addView(label(hint, 16f))
+        val subjects = listOf("语文", "数学", "英语", "常识")
+        val displayGrades = (ViewingSettings.levels + counts.map { it.getString("level") }).distinct()
+        for (grade in displayGrades) {
+            val entries = counts.filter { it.getString("level") == grade }
+            val total = entries.sumOf { it.getInt("count") }
+            val bySubject = entries.associate { it.getString("subject") to it.getInt("count") }
+            val cells = (subjects + bySubject.keys).distinct().map {
+                "${it.ifBlank { "未标注学科" }} ${bySubject[it] ?: 0}"
+            }
+            val title = grade.ifBlank { "未标注年级" }
+            val selected = grade == current
+            val text = "$title${if (selected) "（当前）" else ""} · $total 道\n${cells.joinToString("    ")}"
+            val selectable = grade in ViewingSettings.levels && total > 0
+            val row = Button(this).apply {
+                this.text = text
+                isAllCaps = false
+                gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                learningStyle(selected)
+                isEnabled = selectable
+                setOnClickListener { chooseGrade(grade, childId) }
+            }
+            content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { topMargin = pad / 3 })
+            if (selected) row.post { row.requestFocus() }
+        }
+        setContentView(ScrollView(this).apply {
+            isFillViewport = true
+            addView(content)
+        })
+    }
+
+    private fun chooseGrade(grade: String, childId: Int?) {
+        val household = DeviceRuntime.household
+        val dialog = AlertDialog.Builder(this).setNegativeButton("取消", null)
+        if (childId == null && household.childCount() > 1) {
+            val names = (1..household.childCount()).map(household::name).toTypedArray()
+            dialog.setTitle("将${grade}设为谁的出题年级？")
+                .setItems(names) { _, index -> saveGrade(index + 1, grade) }
+        } else {
+            val target = childId ?: 1
+            dialog.setTitle("设置出题年级")
+                .setMessage("将 ${household.name(target)} 的出题年级设为$grade？")
+                .setPositiveButton("确定") { _, _ -> saveGrade(target, grade) }
+        }
+        dialog.show()
+    }
+
+    private fun saveGrade(childId: Int, grade: String) {
+        val household = DeviceRuntime.household
+        household.store(childId).saveConfig(JSONObject().put("curriculumGrade", grade))
+        Toast.makeText(this, "${household.name(childId)} 的出题年级已设为$grade", Toast.LENGTH_SHORT).show()
+        finish()
     }
 
     override fun onStop() {
         super.onStop()
         finish()
-    }
-
-    private fun render() {
-        val density = resources.displayMetrics.density
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding((32 * density).toInt(), (24 * density).toInt(), (32 * density).toInt(), (24 * density).toInt())
-            setBackgroundColor(0xFF0D192C.toInt())
-        }
-        content.addView(TextView(this).apply {
-            text = DeviceRuntime.household.name(childId) + " · 出题年级"
-            textSize = 28f
-            setTextColor(0xFFF0F7FF.toInt())
-        })
-        content.addView(TextView(this).apply {
-            text = "自编人教版知识练习。各科只抽取选定学期、已学单元内的题目。修改从下一组生效。"
-            textSize = 15f
-            setTextColor(0xFFAEC5DF.toInt())
-        })
-        fun selector(key: String, label: String, choices: List<String>, current: Int, select: (Int) -> Unit) {
-            val row = LinearLayout(this)
-            fun button(title: String, click: () -> Unit): Button {
-                val button = Button(this).apply {
-                    text = title
-                    learningStyle()
-                    setOnClickListener { focusedRow = key; click() }
-                }
-                row.addView(button, LinearLayout.LayoutParams(0, -2, 1f))
-                return button
-            }
-            button("−") { select((current - 1 + choices.size) % choices.size); render() }
-            val center = button(label + " · " + choices[current]) { select((current + 1) % choices.size); render() }
-            if (focusedRow == key) center.post { center.requestFocus() }
-            button("+") { select((current + 1) % choices.size); render() }
-            content.addView(row)
-        }
-        selector("grade", "年级", grades, grades.indexOf(config.getString("curriculumGrade")).coerceAtLeast(0)) {
-            config.put("curriculumGrade", grades[it])
-        }
-        content.addView(Button(this).apply {
-            text = "保存年级"
-            learningStyle(true)
-            setOnClickListener {
-                val changes = JSONObject().put("curriculumGrade", config.getString("curriculumGrade"))
-                DeviceRuntime.household.store(childId).saveConfig(changes)
-                finish()
-            }
-        })
-        setContentView(ScrollView(this).apply { addView(content) })
     }
 }

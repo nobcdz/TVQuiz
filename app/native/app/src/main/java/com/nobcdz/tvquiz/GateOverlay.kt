@@ -136,15 +136,8 @@ class GateOverlay(
         @JavascriptInterface fun deviceInfo(): String =
             JSONObject().put("platform", if (DeviceBridge.isTv) "android-tv" else "android").toString()
 
-        @JavascriptInterface fun chooseTeen(childId: Int): Boolean {
-            if (!owner.isCurrent() || !ViewingMode.chooseTeen(context, childId)) return false
-            val blocked = DeviceRuntime.household.status().getString("reason").isNotEmpty()
-            if (!blocked) owner.post {
-                hide()
-                if (goHome?.invoke() != true) ViewingMode.openHome(context)
-            }
-            return blocked
-        }
+        @JavascriptInterface fun chooseTeen(childId: Int): Boolean =
+            owner.isCurrent() && ViewingMode.chooseTeen(context, childId)
 
         @JavascriptInterface fun chooseParent() = owner.post { openParent(true) }
         @JavascriptInterface fun openParent() = owner.post { openParent(false) }
@@ -152,7 +145,10 @@ class GateOverlay(
 
         @JavascriptInterface fun exitToLauncher() = owner.post {
             val status = DeviceRuntime.household.status()
-            if (status.getString("reason").isEmpty() && status.optLong("remainingSeconds") > 0) hide()
+            if (status.getString("reason").isEmpty() && status.optLong("remainingSeconds") > 0) {
+                hide()
+                if (goHome?.invoke() != true) ViewingMode.openHome(context)
+            }
         }
     }
 

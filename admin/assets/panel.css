@@ -26,3 +26,8 @@ article p, .record { overflow-wrap: anywhere; white-space: pre-wrap; }
 article img { display: block; max-width: 100%; max-height: 300px; background: white; }
 .record { border-top: 1px solid #445270; padding: 8px 0; }
 meter { display: block; width: min(100%,320px); }
+.bank-counts { overflow-x: auto; }
+.bank-counts table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.bank-counts th, .bank-counts td { padding: .55em .4em; white-space: nowrap; border-bottom: 1px solid #445270; text-align: right; }
+.bank-counts th:first-child { text-align: left; }
+.bank-counts thead, .bank-counts td:last-child { color: #c9f59d; }
