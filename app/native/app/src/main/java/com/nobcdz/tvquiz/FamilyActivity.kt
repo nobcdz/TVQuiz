@@ -50,8 +50,7 @@ class FamilyActivity : Activity() {
         for (id in 1..household.childCount()) {
             val config = household.store(id).config()
             val row = LinearLayout(this)
-            val term = if (config.getInt("curriculumTerm") == 1) "上学期" else "下学期"
-            button(row, "${household.name(id)} · ${config.getString("curriculumGrade")} · $term") {
+            button(row, "${household.name(id)} · ${config.getString("curriculumGrade")}") {
                 startActivity(Intent(this, CurriculumActivity::class.java).putExtra("child_id", id))
             }
             content.addView(row)

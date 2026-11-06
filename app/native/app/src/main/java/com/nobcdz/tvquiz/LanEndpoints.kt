@@ -122,7 +122,9 @@ internal class LanEndpoints(
         when {
             input.has("names") -> {
                 val names = input.getJSONObject("names")
-                household.updateProfiles(input.getInt("childCount"), input.getString("selection"),
+                val count = input.getInt("childCount")
+                val selection = input.optString("selection", if (count == 1) "1" else household.selection())
+                household.updateProfiles(count, selection,
                     names.keys().asSequence().associate { key -> key.toInt() to names.getString(key) })
             }
             input.has("childCount") -> household.setChildCount(input.getInt("childCount"))

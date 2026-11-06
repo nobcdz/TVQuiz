@@ -16,6 +16,8 @@ class UpdateActivity : Activity() {
     private lateinit var primary: Button
     private var busy = false
     private var address = ""
+    private var version = ""
+    private var mandatory = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,6 +25,8 @@ class UpdateActivity : Activity() {
         hideSystemChrome()
         val release = runCatching { JSONObject(intent.getStringExtra("payload") ?: "") }.getOrElse { JSONObject() }
         address = release.optString("url")
+        version = release.optString("latest")
+        mandatory = release.optBoolean("force")
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -55,13 +59,13 @@ class UpdateActivity : Activity() {
         if (intent.getBooleanExtra("auto", false) && address.isNotBlank()) primary.post { requestUpdate() }
     }
 
-    private fun actionText() = if (ApkInstaller.alreadyDownloaded(this, 0)) "开始安装" else "立即更新"
+    private fun actionText() = if (ApkInstaller.alreadyDownloaded(this, version)) "开始安装" else "立即更新"
 
     private fun requestUpdate() {
         if (busy || address.isBlank()) return
         Prefs.setUpdateInProgress(this, true)
-        if (ApkInstaller.alreadyDownloaded(this, 0)) {
-            if (!ApkInstaller.install(this, ApkInstaller.apkFile(this))) {
+        if (ApkInstaller.alreadyDownloaded(this, version)) {
+            if (!ApkInstaller.install(this, ApkInstaller.apkFile(this), version)) {
                 Prefs.setUpdateInProgress(this, false)
                 primary.text = "请允许安装未知应用"
             }
@@ -71,7 +75,7 @@ class UpdateActivity : Activity() {
         primary.isEnabled = false
         primary.text = "下载中 0%"
         Thread({
-            val result = ApkInstaller.download(applicationContext, address) { percent ->
+            val result = ApkInstaller.download(applicationContext, address, version) { percent ->
                 runOnUiThread { if (!isDestroyed) primary.text = "下载中 $percent%" }
             }
             runOnUiThread {
@@ -81,7 +85,7 @@ class UpdateActivity : Activity() {
                 if (result == null) {
                     Prefs.setUpdateInProgress(this, false)
                     primary.text = "下载失败，重试"
-                } else if (ApkInstaller.install(this, result)) {
+                } else if (ApkInstaller.install(this, result, version)) {
                     primary.text = "开始安装"
                 } else {
                     Prefs.setUpdateInProgress(this, false)
@@ -99,8 +103,12 @@ class UpdateActivity : Activity() {
         setPadding(0, dp(6), 0, dp(8))
     }
 
-    @Deprecated("Required update must be completed first")
-    override fun onBackPressed() = Unit
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        if (mandatory) return
+        Prefs.setUpdateInProgress(this, false)
+        super.onBackPressed()
+    }
 
     @Suppress("DEPRECATION")
     private fun hideSystemChrome() {

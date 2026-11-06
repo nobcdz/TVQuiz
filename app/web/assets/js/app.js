@@ -105,8 +105,9 @@
       if (response.blocked) { lock(response.blocked); return; }
       if (response.watching) {
         state.lockReason = '';
-        var minutes = Math.ceil(state.learning.remainingSeconds / 60);
-        lockCard('已解锁使用时间', '还可以使用 ' + minutes + ' 分钟', '✓', '', '返回桌面', 'home');
+        var roundMinutes = Math.ceil(state.learning.remainingSeconds / 60);
+        var dailyMinutes = Math.ceil(state.learning.dailyRemainingSeconds / 60);
+        lockCard('已解锁使用时间', '今日总剩余 ' + dailyMinutes + ' 分钟\n本轮剩余 ' + roundMinutes + ' 分钟', '✓', '', '返回桌面', 'home');
       } else {
         state.round = response;
         show('quiz');
@@ -443,10 +444,9 @@
       entry.className = 'mode-card focusable';
       entry.setAttribute('data-action', 'teen');
       entry.setAttribute('data-child-id', child.id);
-      var term = child.term === 2 ? '下学期' : '上学期';
       appendText(entry, 'span', '档案 0' + (position + 1) + ' / 青少年', 'mode-number');
       appendText(entry, 'strong', child.name);
-      appendText(entry, 'span', child.grade + ' · ' + term);
+      appendText(entry, 'span', child.grade);
       appendText(entry, 'i', '开始观看 →');
       entries.appendChild(entry);
     });

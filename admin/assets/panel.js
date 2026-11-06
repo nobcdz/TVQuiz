@@ -1,25 +1,22 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const grades = Array.from('一二三四五六七八九', n => n + '年级');
+  const grades = ['幼儿园', ...Array.from('一二三四五六七八九', n => n + '年级')];
   const subjects = ['语文','数学','英语','常识'];
-  const terms = [[1,'上学期'],[2,'下学期']];
+  $('tvAddress').value = location.host;
   const configFields = [
-    ['curriculumGrade','出题年级',grades], ['curriculumTerm','学期',terms,'number'],
-    ['chineseUnit','语文进度',1,12], ['mathUnit','数学进度',1,12], ['englishUnit','英语进度',1,12],
-    ['dailyMinutes','每日观看上限（分钟）',1,480], ['sessionMinutes','每轮奖励（分钟）',1,120],
+    ['curriculumGrade','出题年级',grades],
+    ['dailyMinutes','每日观看上限（分钟）',1,480], ['sessionMinutes','每轮观看时间（分钟）',1,120],
     ['questionsPerRound','每轮题数',1,100], ['roundsPerDay','每日轮次上限',1,100],
     ['playMode','任务模式',[['streak','连续答对'],['round','按组答题'],['practice','自由练习']]],
-    ['passRatio','通过比例（0–1）',.01,1,.01], ['allDay','全天可用','checkbox'],
+    ['passPercent','通过所需正确率（%）',1,100,.01], ['allDay','全天可用','checkbox'],
     ['windowStart','开始时间','time'], ['windowEnd','结束时间','time'],
     ['extraEnabled','启用错题加练','checkbox'], ['wrongThreshold','触发加练的错题数',1,100],
-    ['extraQuestions','每次增加题数',1,100], ['spacedRepetitionEnabled','启用间隔复习','checkbox'],
-    ['difficultyRewardEnabled','按难度奖励时长','checkbox']
+    ['extraQuestions','每次增加题数',1,100], ['spacedRepetitionEnabled','启用间隔复习','checkbox']
   ];
   const questionFields = [
     ['id','题目 ID（新增时留空）','text'], ['subject','学科',subjects],
-    ['level','年级',[['','未标注'], ...grades]], ['term','学期',[[0,'未标注'], ...terms],'number'],
-    ['unit','单元',0,12], ['difficulty','难度',1,5],
+    ['level','年级',grades], ['difficulty','难度',1,5],
     ['type','题型',[['single','单选'],['multiple','多选'],['boolean','判断'],['text','填空'],['subjective','主观']]],
     ['q','题干','textarea'], ['a','选项，每行一项','textarea'],
     ['k','正确选项序号（从 1 开始）',1,8], ['correctIndices','多选序号，用逗号分隔','text'],
@@ -67,7 +64,7 @@
   function values(form) {
     const result = {};
     for (const input of form.elements) {
-      if (!input.name) continue;
+      if (!input.name || input.disabled) continue;
       if (input.type === 'checkbox') result[input.name] = input.checked;
       else if (input.type === 'number' || input.dataset.numeric) {
         if (input.value !== '') result[input.name] = Number(input.value);
@@ -123,9 +120,8 @@
       const entry = make('option', item.name); entry.value = item.id; return entry;
     }));
     $('profile').value = child;
-    const schema = [['childCount','启用档案数',[[1,'一个孩子'],[2,'两个孩子']],'number'],
-      ['selection','当前观看者',[[1,'孩子 1'],[2,'孩子 2'],['both','一起观看']]]];
-    const defaults = { childCount: data.childCount, selection: data.selection };
+    const schema = [['childCount','启用档案数',[[1,'一个孩子'],[2,'两个孩子']],'number']];
+    const defaults = { childCount: data.childCount };
     for (const item of children) {
       schema.push(['name' + item.id, '孩子 ' + item.id + ' 的名字','text']);
       defaults['name' + item.id] = item.name;
@@ -138,9 +134,15 @@
     const data = await api('state', 'GET', undefined, profile);
     if (snapshot !== generation || profile !== child) return;
     const rules = data.config;
-    const rewards = [1,2,3,4,5].map(n => ['reward' + n, n + ' 星奖励（分钟）', .1, 120, .1]);
-    for (const n of [1,2,3,4,5]) rules['reward' + n] = rules.difficultyRewards[n];
-    fields('configFields', [...configFields, ...rewards], rules);
+    rules.passPercent = Number((rules.passRatio * 100).toFixed(2));
+    fields('configFields', configFields, rules);
+    const inputs = $('config').elements;
+    const updateSchedule = () => {
+      inputs.windowStart.disabled = inputs.allDay.checked;
+      inputs.windowEnd.disabled = inputs.allDay.checked;
+    };
+    inputs.allDay.onchange = updateSchedule;
+    updateSchedule();
     $('config').hidden = false;
   }
   function action(label, callback) {
@@ -172,7 +174,7 @@
     $('questionList').replaceChildren(...result.items.map(item => {
       const card = make('article');
       card.className = 'card';
-      card.append(make('strong', [item.subject,item.level,item.term === 2 ? '下学期' : item.term === 1 ? '上学期' : '未标注', '难度 ' + item.difficulty].join(' · ')),
+      card.append(make('strong', [item.subject,item.level || '未标注年级', '难度 ' + item.difficulty].join(' · ')),
         make('p', item.q), action('编辑', () => { questionForm(item); $('question').scrollIntoView(); }),
         action('删除', async () => {
           if (!confirm('删除这道题？')) return;
@@ -250,16 +252,6 @@
 
   submit('login', async form => {
     const formData = values(form);
-    const address = formData.address.trim();
-    if (address) {
-      const destination = new URL(address.includes('://') ? address : 'http://' + address);
-      if (!['http:','https:'].includes(destination.protocol) || destination.username || destination.password) {
-        throw Error('请输入有效的电视地址。');
-      }
-      if (destination.origin !== location.origin) {
-        location.assign(destination.origin + '/admin/'); return;
-      }
-    }
     const reply = await api('auth','POST',{passphrase:formData.passphrase});
     token = reply.token;
     sessionStorage.setItem('tvquiz-parent', token);
@@ -271,16 +263,13 @@
     for (let id = 1; id <= settings.childCount; id++) {
       if (settings['name' + id] !== undefined) names[id] = settings['name' + id];
     }
-    const selection = settings.childCount === 1 ? '1' : String(settings.selection);
-    await api('household','PUT',{childCount:settings.childCount,selection,names});
+    await api('household','PUT',{childCount:settings.childCount,names});
     await refreshFamily(); await refreshConfig(); notice('孩子档案已保存。');
   });
   submit('config', async form => {
     const rules = values(form);
-    rules.difficultyRewards = {};
-    for (const n of [1,2,3,4,5]) {
-      rules.difficultyRewards[n] = rules['reward' + n]; delete rules['reward' + n];
-    }
+    if (rules.passPercent !== undefined) rules.passRatio = rules.passPercent / 100;
+    delete rules.passPercent;
     await api('config','PUT',rules); await refreshConfig(); notice('观看规则已保存。');
   });
   submit('filter', refreshQuestions);

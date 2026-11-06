@@ -18,8 +18,8 @@ android {
         applicationId = "com.nobcdz.tvquiz"
         minSdk = 21          // Android 5.0
         targetSdk = 34
-        versionCode = 44
-        versionName = "0.3.34"
+        versionCode = 45
+        versionName = "0.3.35"
     }
 
     flavorDimensions += "device"

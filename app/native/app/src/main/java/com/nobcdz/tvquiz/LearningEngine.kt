@@ -15,7 +15,7 @@ class LearningEngine(private val store: LocalStore) {
         val state = allowance.state()
         val balance = state.balance
         return JSONObject()
-            .put("remainingSeconds", (balance.credit + 999) / 1000)
+            .put("remainingSeconds", (minOf(balance.credit, balance.dailyLeft) + 999) / 1000)
             .put("usedMinutes", balance.used / 60000.0)
             .put("dailyRemainingSeconds", (balance.dailyLeft + 999) / 1000)
             .put("extraPool", number("extra_pool"))
@@ -103,7 +103,7 @@ class LearningEngine(private val store: LocalStore) {
         put("rules", config)
         put("mode", config.getString("playMode"))
         put("target", config.getInt("questionsPerRound"))
-        for (key in listOf("answered", "correct", "streak", "earnedMs")) put(key, 0)
+        for (key in listOf("answered", "correct", "streak")) put(key, 0)
     }
 
     @Synchronized
@@ -225,10 +225,7 @@ class LearningEngine(private val store: LocalStore) {
         var minutes = 0.0
         if (passed) {
             val rules = round.getJSONObject("rules")
-            val reward = when {
-                rules.optBoolean("difficultyRewardEnabled") -> round.getLong("earnedMs")
-                else -> rules.getLong("sessionMinutes") * 60_000L
-            }
+            val reward = rules.getLong("sessionMinutes") * 60_000L
             minutes = allowance.grant(reward) / 60_000.0
             val event = JSONObject().put("minutes", minutes).put("roundId", round.getString("id"))
             store.logEvent("quiz_pass", event)

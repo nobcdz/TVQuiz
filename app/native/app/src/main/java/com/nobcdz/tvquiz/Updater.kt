@@ -10,7 +10,9 @@ object Updater {
 
     data class Info(val latest: String, val current: String, val force: Boolean, val notes: String, val url: String)
 
-    fun api(ctx: Context) = Prefs.updateApi(ctx)
+    fun api(ctx: Context) = Prefs.updateApi(ctx).ifBlank {
+        "https://api.github.com/repos/nobcdz/TVQuiz/releases/latest"
+    }
 
     fun currentVersion(ctx: Context): String = runCatching {
         ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName
@@ -68,19 +70,21 @@ object Updater {
 
     internal fun decodeRelease(data: JSONObject, current: String): Info? {
         val version = data.optString("tag_name").removePrefix("v").trim()
-        if (version.isEmpty()) return null
+        if (!Regex("""\d+\.\d+\.\d+""").matches(version) ||
+            data.optBoolean("draft") || data.optBoolean("prerelease")) return null
         val assets = data.optJSONArray("assets") ?: return null
         var preferred: JSONObject? = null
         for (index in 0 until assets.length()) {
             val item = assets.optJSONObject(index) ?: continue
             val name = item.optString("name")
-            if (name.contains("-TV-", ignoreCase = true) && name.endsWith(".apk", ignoreCase = true)) {
+            if (name.equals("TVQuiz-$version.apk", ignoreCase = true) ||
+                name.equals("TVQuiz-TV-$version.apk", ignoreCase = true)) {
                 preferred = item
                 break
             }
         }
         val address = preferred?.optString("browser_download_url").orEmpty()
-        if (address.isBlank()) return null
+        if (!address.startsWith("https://")) return null
         val description = data.optString("body")
         val mandatory = description.contains("[force]", true) || description.contains("force update", true)
         return Info(version, current, mandatory && isNewer(version, current), description.trim(), address)

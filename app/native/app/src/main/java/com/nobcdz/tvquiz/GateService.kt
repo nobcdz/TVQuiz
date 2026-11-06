@@ -103,25 +103,26 @@ class GateService : Service() {
 
     private fun presentGate(reason: String, now: Long, visible: Boolean, overlayAllowed: Boolean) {
         val activityAvailable = Build.VERSION.SDK_INT < 29
-        val quotaActivity = reason == "quota" && activityAvailable
-        if (GateActivity.visible || now - lastGate <= 1_800L || (visible && !quotaActivity)) return
+        if (GateActivity.visible || now - lastGate <= 1_800L || (visible && !activityAvailable)) return
         lastGate = now
 
-        // The legacy quota activity lets the system power menu stay above the gate.
-        if (quotaActivity) launchGate(reason)
+        // On older TVs, an activity keeps the firmware power menu above the gate.
+        if (activityAvailable && launchGate(reason)) {
+            hideAll()
+            return
+        }
         if (WatchAccessibilityService.showGate(reason)) return
         if (overlayAllowed && overlay.show(reason)) return
-        if (activityAvailable && !quotaActivity) launchGate(reason)
     }
 
-    private fun launchGate(reason: String) {
+    private fun launchGate(reason: String): Boolean {
         val page = Intent(this, GateActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("reason", reason)
         }
-        runCatching { startActivity(page) }.onFailure {
+        return runCatching { startActivity(page) }.onFailure {
             android.util.Log.w("TVQuizGate", "Cannot open gate activity", it)
-        }
+        }.isSuccess
     }
 
     private fun updateAnchor(allowed: Boolean) {

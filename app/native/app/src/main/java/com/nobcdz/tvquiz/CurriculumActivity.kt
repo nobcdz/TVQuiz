@@ -9,7 +9,7 @@ import android.widget.TextView
 import org.json.JSONObject
 
 class CurriculumActivity : Activity() {
-    private val grades = listOf("一年级", "二年级", "三年级", "四年级", "五年级", "六年级", "七年级", "八年级", "九年级")
+    private val grades = ViewingSettings.levels
     private lateinit var config: JSONObject
     private var focusedRow = "grade"
     private val childId by lazy { intent.getIntExtra("child_id", 1).coerceIn(1, 2) }
@@ -34,7 +34,7 @@ class CurriculumActivity : Activity() {
             setBackgroundColor(0xFF0D192C.toInt())
         }
         content.addView(TextView(this).apply {
-            text = DeviceRuntime.household.name(childId) + " · 题库年级与学习进度"
+            text = DeviceRuntime.household.name(childId) + " · 出题年级"
             textSize = 28f
             setTextColor(0xFFF0F7FF.toInt())
         })
@@ -63,22 +63,11 @@ class CurriculumActivity : Activity() {
         selector("grade", "年级", grades, grades.indexOf(config.getString("curriculumGrade")).coerceAtLeast(0)) {
             config.put("curriculumGrade", grades[it])
         }
-        selector("term", "学期", listOf("上册", "下册"), config.getInt("curriculumTerm") - 1) {
-            config.put("curriculumTerm", it + 1)
-        }
-        listOf("chineseUnit" to "语文", "mathUnit" to "数学", "englishUnit" to "英语").forEach { (key, subject) ->
-            selector(key, subject, (1..12).map { "学到第 " + it + " 单元" }, config.getInt(key) - 1) {
-                config.put(key, it + 1)
-            }
-        }
         content.addView(Button(this).apply {
-            text = "保存学习进度"
+            text = "保存年级"
             learningStyle(true)
             setOnClickListener {
-                val changes = JSONObject()
-                listOf("curriculumGrade", "curriculumTerm", "chineseUnit", "mathUnit", "englishUnit").forEach {
-                    changes.put(it, config.get(it))
-                }
+                val changes = JSONObject().put("curriculumGrade", config.getString("curriculumGrade"))
                 DeviceRuntime.household.store(childId).saveConfig(changes)
                 finish()
             }

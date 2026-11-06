@@ -1,6 +1,7 @@
 package com.nobcdz.tvquiz
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
@@ -18,6 +19,7 @@ import android.webkit.WebView
 
 class ParentActivity : Activity() {
     private var verified = false
+    private var checkingUpdate = false
     private var formRevision = 0
     private var web: WebView? = null
     private var bridge: DeviceBridge? = null
@@ -156,6 +158,33 @@ class ParentActivity : Activity() {
             "permissions" -> startActivity(Intent(this, OnboardingActivity::class.java))
             "protection" -> startActivity(Intent(this, ProtectionActivity::class.java))
             "password" -> form(true, true)
+            "update" -> checkUpdate()
+        }
+    }
+
+    private fun checkUpdate() {
+        if (checkingUpdate) return
+        checkingUpdate = true
+        val panel = web
+        val progress = AlertDialog.Builder(this).setMessage("正在检查更新…").create()
+        progress.show()
+        Updater.check(this, forceRefresh = true) { info ->
+            runOnUiThread {
+                checkingUpdate = false
+                if (isDestroyed || isFinishing) return@runOnUiThread
+                val showResult = progress.isShowing && verified && web === panel
+                progress.dismiss()
+                if (!showResult) return@runOnUiThread
+                val update = Updater.newerThanCurrent(this, info)
+                if (update != null) {
+                    startActivity(Intent(this, UpdateActivity::class.java)
+                        .putExtra("payload", DeviceBridge.releasePayload(update)))
+                } else {
+                    val message = if (info == null) "无法获取正式版本，请检查网络后重试。"
+                        else "当前已是最新版本 v" + Updater.currentVersion(this)
+                    AlertDialog.Builder(this).setMessage(message).setPositiveButton("确定", null).show()
+                }
+            }
         }
     }
 

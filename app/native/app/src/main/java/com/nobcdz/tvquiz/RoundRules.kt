@@ -2,27 +2,22 @@ package com.nobcdz.tvquiz
 
 import java.text.Normalizer
 import java.util.Locale
-import kotlin.math.ceil
 import org.json.JSONArray
 import org.json.JSONObject
 
 internal object RoundRules {
-    private val curriculumKeys = listOf("curriculumGrade", "curriculumTerm", "chineseUnit", "mathUnit", "englishUnit")
     private val hidden = listOf("k", "answers", "correctIndices", "tip", "modelAnswer", "rubric")
     private val whitespace = Regex("""\s+""")
 
     fun needsNewQuestion(round: JSONObject, config: JSONObject): Boolean {
         val grade = config.getString("curriculumGrade")
-        val term = config.getInt("curriculumTerm")
         return listOf(round.getJSONObject("rules"), round.getJSONObject("question")).let { (rules, question) ->
-            rules.optString("curriculumGrade") != grade || rules.optInt("curriculumTerm") != term ||
-                question.optString("level") != grade || question.optInt("term") != term
+            rules.optString("curriculumGrade") != grade || question.optString("level") != grade
         }
     }
 
     fun updateCurriculum(round: JSONObject, config: JSONObject) {
-        val rules = round.getJSONObject("rules")
-        for (key in curriculumKeys) rules.put(key, config.get(key))
+        round.getJSONObject("rules").put("curriculumGrade", config.getString("curriculumGrade"))
     }
 
     fun publicCopy(round: JSONObject): JSONObject = JSONObject(round.toString()).apply {
@@ -67,22 +62,16 @@ internal object RoundRules {
         val extra = round.optBoolean("extra")
         val mode = round.getString("mode")
         val streak = mode == "streak"
-        if (streak && !correct && !extra) round.put("earnedMs", 0)
         if (!extra || mode == "practice") {
             round.put("answered", round.getInt("answered") + 1)
             round.put("streak", if (correct) round.getInt("streak") + 1 else 0)
             if (correct) {
                 round.put("correct", round.getInt("correct") + 1)
-                if (rules.optBoolean("difficultyRewardEnabled")) {
-                    val difficulty = round.getJSONObject("question").optInt("difficulty", 2)
-                    val reward = rules.getJSONObject("difficultyRewards").getDouble(difficulty.toString())
-                    round.put("earnedMs", round.getLong("earnedMs") + (reward * 60_000).toLong())
-                }
             }
         }
         val target = round.getInt("target")
         val done = round.getInt(if (streak) "streak" else "answered") >= target
-        val passed = streak || round.getInt("correct") >= ceil(target * rules.getDouble("passRatio")).toInt()
+        val passed = streak || round.getInt("correct").toDouble() / target >= rules.getDouble("passRatio")
         return Progress(done, passed, mode != "practice" && done && (!passed || extraLeft == 0L))
     }
 }

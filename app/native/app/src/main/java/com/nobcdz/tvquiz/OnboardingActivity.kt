@@ -28,6 +28,9 @@ class OnboardingActivity : Activity() {
 
     private val labels = linkedMapOf<Access, TextView>()
     private lateinit var summary: TextView
+    private lateinit var start: Button
+    private lateinit var manage: Button
+    private var requestedAccess: Access? = null
     private val ui = Handler(Looper.getMainLooper())
     private val statusTick = object : Runnable {
         override fun run() {
@@ -56,8 +59,10 @@ class OnboardingActivity : Activity() {
         content.addView(summary, vertical(8))
         for (access in Access.values()) content.addView(accessRow(access), vertical(6))
         val actions = LinearLayout(this).apply { gravity = Gravity.END }
-        val start = control("开始学习") { complete(MainActivity::class.java) }
-        val manage = control("进入家长设置", primary = true) { complete(ParentActivity::class.java) }
+        start = control("开始学习") { complete(MainActivity::class.java) }
+        manage = control("开始授权", primary = true) {
+            if (ready()) complete(ParentActivity::class.java) else requestNextAccess()
+        }
         actions.addView(start, LinearLayout.LayoutParams(0, px(44), 1f))
         actions.addView(manage, LinearLayout.LayoutParams(0, px(44), 1f).apply { marginStart = px(10) })
         content.addView(actions, vertical(12))
@@ -71,7 +76,12 @@ class OnboardingActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (::summary.isInitialized) statusTick.run()
+        if (::summary.isInitialized) {
+            statusTick.run()
+            val previous = requestedAccess
+            requestedAccess = null
+            if (previous != null && enabled(previous) && !ready()) requestNextAccess()
+        }
     }
 
     override fun onPause() {
@@ -87,30 +97,33 @@ class OnboardingActivity : Activity() {
         }
         val status = caption("", 12f, MUTED)
         labels[access] = status
-        val settings = control("设置") { openSettings(access) }.apply {
-            contentDescription = "设置" + access.label
-        }
         return LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             background = panel(CARD, LINE)
             setPadding(px(14), px(6), px(10), px(6))
             addView(copy, LinearLayout.LayoutParams(0, -2, 1f))
             addView(status, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = px(12) })
-            addView(settings, LinearLayout.LayoutParams(px(66), px(40)))
+            if (access == Access.ACCESSIBILITY || access == Access.BACKGROUND) {
+                addView(control("设置") { openSettings(access) }.apply {
+                    contentDescription = "设置" + access.label
+                }, LinearLayout.LayoutParams(px(66), px(40)))
+            }
         }
     }
 
+    private fun enabled(access: Access): Boolean = when (access) {
+        Access.OVERLAY -> GateOverlay.canDraw(this)
+        Access.USAGE -> Foreground.hasUsageAccess(this)
+        Access.ACCESSIBILITY -> WatchAccessibilityService.connected
+        Access.BACKGROUND -> false
+    }
+
+    private fun ready() = enabled(Access.ACCESSIBILITY) ||
+        enabled(Access.OVERLAY) && enabled(Access.USAGE)
+
     private fun updateLabels() {
-        val overlay = GateOverlay.canDraw(this)
-        val usage = Foreground.hasUsageAccess(this)
-        val accessibility = WatchAccessibilityService.connected
-        val active = setOfNotNull(
-            Access.OVERLAY.takeIf { overlay },
-            Access.USAGE.takeIf { usage },
-            Access.ACCESSIBILITY.takeIf { accessibility }
-        )
         for ((access, label) in labels) {
-            val enabled = access in active
+            val enabled = enabled(access)
             label.text = when {
                 access == Access.BACKGROUND -> "按设备设置"
                 enabled -> "已开启"
@@ -118,12 +131,17 @@ class OnboardingActivity : Activity() {
             }
             label.setTextColor(if (enabled) MINT else MUTED)
         }
-        summary.text = when {
-            accessibility || overlay && usage -> "观看管理已就绪。"
-            overlay -> "已启用简易管理，可继续开启使用情况访问。"
-            usage -> "已可记录使用时间，开启悬浮窗后可显示学习任务。"
-            else -> "可按需开启这些权限，也可以稍后回来设置。"
-        }
+        val ready = ready()
+        start.isEnabled = ready
+        manage.text = if (ready) "进入家长设置" else "继续授权"
+        summary.text = if (ready) "观看管理已就绪。"
+        else "必须开启无障碍服务，或同时开启悬浮窗和使用情况访问，才能开始学习。请在系统页面确认授权。"
+    }
+
+    private fun requestNextAccess() {
+        val next = listOf(Access.OVERLAY, Access.USAGE).firstOrNull { !enabled(it) } ?: return
+        requestedAccess = next
+        openSettings(next)
     }
 
     private fun openSettings(access: Access) {
@@ -145,10 +163,16 @@ class OnboardingActivity : Activity() {
                 // Try the next system settings entry when this one is restricted.
             }
         }
+        requestedAccess = null
         Toast.makeText(this, "请在系统设置中调整权限", Toast.LENGTH_SHORT).show()
     }
 
     private fun complete(destination: Class<out Activity>) {
+        if (!ready()) {
+            updateLabels()
+            manage.requestFocus()
+            return
+        }
         Prefs.setOnboarded(this, true)
         try {
             GateService.start(this)

@@ -51,7 +51,7 @@ class RegressionInstrumentation : Instrumentation() {
             store.saveConfig(JSONObject().put("allDay", true).put("dailyMinutes", 480)
                 .put("questionsPerRound", 1).put("sessionMinutes", 10).put("playMode", "streak")
                 .put("wrongThreshold", 1).put("extraQuestions", 1).put("mathUnit", 1))
-            check(store.questions(limit = 20, forLearning = true).length() == 2) { "Curriculum filtering failed" }
+            check(store.questions(limit = 20, forLearning = true).length() == 4) { "Grade filtering excluded another term or unit" }
             val duplicate = item("eligible-copy", "七年级", 1, 1).put("q", "eligible1")
             check(store.importQuestions(JSONArray().put(duplicate)) == 0) { "Import duplicated an existing stem" }
             check(store.importQuestions(JSONArray().put(item("hard-import", "九年级", 2, 1).put("difficulty", "难"))) == 1)
@@ -59,7 +59,7 @@ class RegressionInstrumentation : Instrumentation() {
             var engine = LearningEngine(store)
             val round = engine.start()
             check(round.getJSONObject("status").getLong("dailyRemainingSeconds") == 28800L)
-            check(round.getJSONObject("question").getString("id").startsWith("eligible"))
+            check(round.getJSONObject("question").getString("level") == "七年级")
             val nonce = round.getString("nonce")
             check(LearningEngine(LocalStore(isolated)).start().getString("nonce") == nonce) { "Task changed on reopening" }
             fun answer(task: JSONObject, correct: Boolean): JSONObject = engine.answer(JSONObject()
@@ -123,10 +123,9 @@ class RegressionInstrumentation : Instrumentation() {
             family.setChildCount(2)
             check(family.chooseChild(2) && family.profiles().getJSONObject(1).getString("grade") == "八年级")
             second.saveConfig(JSONObject().put("curriculumGrade", "七年级").put("curriculumTerm", 2))
-            val lowerTerm = family.start().getJSONObject("question")
-            check(lowerTerm.getString("id") == "wrong-term" && lowerTerm.getInt("term") == 2)
+            check(family.start().getJSONObject("question").getString("level") == "七年级")
             second.saveConfig(JSONObject().put("playMode", "practice"))
-            second.set("used_ms", "1800000")
+            second.set("used_ms", "3600000")
             check(family.start().getString("blocked") == "quota") { "Daily quota must lock instead of serving practice questions" }
             check(family.status().getLong("dailyRemainingSeconds") == 0L)
             check(family.engine(2).answer(JSONObject()).getString("blocked") == "quota")
@@ -138,13 +137,15 @@ class RegressionInstrumentation : Instrumentation() {
             val fresh = LocalStore(isolated)
             check(fresh.countQuestions() == 0)
             SeedAssets.ensureQuestions(targetContext, fresh)
-            check(fresh.countQuestions() == 2304)
-            val sample = fresh.questions(limit = 1).getJSONObject(0)
+            check(fresh.countQuestions() == 2445)
+            val preschool = JSONObject().put("curriculumGrade", "幼儿园")
+            check(fresh.questions(limit = 100, forLearning = true, curriculum = preschool).length() == 42)
+            val sample = fresh.questions(limit = 1, level = "一年级").getJSONObject(0)
             check(sample.getInt("term") in 1..2)
             fresh.deleteQuestion(sample.getString("id"))
             fresh.set("builtin_bank_version", "previous")
             SeedAssets.ensureQuestions(targetContext, fresh)
-            check(fresh.countQuestions() == 2303) { "Deleted builtin question reappeared" }
+            check(fresh.countQuestions() == 2444) { "Deleted builtin question reappeared" }
             checkLanContract(targetContext, fresh)
             fresh.close()
             checkParentCredentials()
@@ -351,11 +352,15 @@ class RegressionInstrumentation : Instrumentation() {
         val release = JSONObject().put("tag_name", "v1.2.0").put("body", "[force]")
             .put("assets", JSONArray()
                 .put(JSONObject().put("name", "LegacyApp-v1.2.0.apk").put("browser_download_url", "https://example.invalid/legacy"))
-                .put(JSONObject().put("name", "Quiz-TV-debug.apk").put("browser_download_url", "https://example.invalid/tv")))
+                .put(JSONObject().put("name", "TVQuiz-1.2.0-debug.apk").put("browser_download_url", "https://example.invalid/debug"))
+                .put(JSONObject().put("name", "TVQuiz-1.2.0.apk").put("browser_download_url", "https://example.invalid/tv")))
         val info = requireNotNull(update.decodeRelease(release, "1.1.9"))
         check(info.force && info.url.endsWith("/tv") && !update.isNewer("1.2.0", "1.2"))
         check(update.decodeRelease(release, "1.2.0")?.force == false)
-        release.getJSONArray("assets").remove(1)
+        release.put("prerelease", true)
+        check(update.decodeRelease(release, "1.1.9") == null)
+        release.put("prerelease", false)
+        release.getJSONArray("assets").remove(2)
         check(update.decodeRelease(release, "1.1.9") == null)
 
         val grading = com.nobcdz.tvquiz.GradingService

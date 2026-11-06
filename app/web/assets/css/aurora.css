@@ -70,7 +70,20 @@ html.tv-device body { background: #090a19; color: #f5f4ff; }
 .mode-card, .option { -webkit-transition: -webkit-transform .16s ease, background-color .16s ease, border-color .16s ease; transition: transform .16s ease, background-color .16s ease, border-color .16s ease; }
 .mode-card.focused { -webkit-transform: translateY(-.45rem); transform: translateY(-.45rem); }
 .on-mode .boot-pair, .on-quiz .question { -webkit-animation: answer-in .26s ease-out; animation: answer-in .26s ease-out; }
+#screen-quiz.active .quiz-wrap {
+  -webkit-animation: quiz-enter .24s ease-out both;
+  animation: quiz-enter .24s ease-out both;
+}
+@-webkit-keyframes quiz-enter {
+  from { opacity: 0; -webkit-transform: translateY(1.2rem); }
+  to { opacity: 1; -webkit-transform: translateY(0); }
+}
+@keyframes quiz-enter {
+  from { opacity: 0; transform: translateY(1.2rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
 @media (prefers-reduced-motion: reduce) {
+  #screen-quiz.active .quiz-wrap { -webkit-animation: none; animation: none; }
   .on-mode .boot-pair, .on-quiz .question { -webkit-animation: none; animation: none; }
   .mode-card, .option { -webkit-transition: none; transition: none; }
 }
@@ -180,13 +193,13 @@ html.tv-device body { background: #090a19; color: #f5f4ff; }
 }
 .pair-controls {
   width: 57%; margin-right: 3%;
-  padding: 3.8rem 4rem; border: 1px solid #354568; border-radius: 2.5rem;
+  padding: 2.5rem 4rem; border: 1px solid #354568; border-radius: 2.5rem;
   background: linear-gradient(145deg, #19274b, #111a36);
 }
 .pair-controls h1 { margin: 1rem 0 .6rem; color: #f3f7ff; font-size: 5rem; line-height: 1.2; }
-.pair-intro { color: #b6c7e0; font-size: 1.9rem; margin: 0 0 2.8rem; }
+.pair-intro { color: #b6c7e0; font-size: 1.9rem; margin: 0 0 1.8rem; }
 .pair-action {
-  width: 100%; min-height: 8.8rem; margin-bottom: 1.1rem; padding: 1.5rem 2rem;
+  width: 100%; min-height: 6.5rem; margin-bottom: .9rem; padding: .8rem 2rem;
   display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center;
   text-align: left; font-family: inherit; color: #edf5ff;
   border: 2px solid #334a6c; border-radius: 1.5rem; background: #182943;

@@ -96,11 +96,8 @@ class LocalStore(context: Context, val childId: Int = 1, private val shared: Loc
         }
         if (forLearning) {
             val plan = curriculum ?: config()
-            filters.add("q.level = ? AND q.term = ?")
+            filters.add("q.level = ?")
             values.add(plan.getString("curriculumGrade"))
-            values.add(plan.getInt("curriculumTerm").toString())
-            filters.add("q.unit <= CASE q.subject WHEN '语文' THEN ? WHEN '数学' THEN ? WHEN '英语' THEN ? ELSE 12 END")
-            for (key in listOf("chineseUnit", "mathUnit", "englishUnit")) values.add(plan.getInt(key).toString())
         }
 
         val withProgress = forLearning || spaced

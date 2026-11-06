@@ -11,7 +11,7 @@ function add(grade, term, subject, topic, stem, correct, distractors, tip, diffi
     // A stable rotation keeps the correct answer distributed across all positions.
     const position = questions.length % 4;
     const options = answers.slice(4 - position).concat(answers.slice(0, 4 - position));
-    questions.push({id, subject, level: grades[grade - 1] + '年级', term, unit: 1,
+    questions.push({id, subject, level: grade === 0 ? '幼儿园' : grades[grade - 1] + '年级', term, unit: 1,
         topic, type: 'single', difficulty, q: stem,
         a: options, k: options.indexOf(String(correct)), tip, source: '自编人教版知识点练习'});
 }
@@ -238,6 +238,60 @@ function addLanguageExtensions(subject, groups) {
 }
 addLanguageExtensions('英语', englishExtensions);
 addLanguageExtensions('语文', chineseExtensions);
+
+const preschool = [
+    ['常识', '颜色', '成熟香蕉的外皮通常是什么颜色？', '黄色', '蓝色', '紫色', '黑色'],
+    ['常识', '颜色', '晴天时，抬头常看到什么颜色的天空？', '蓝色', '红色', '绿色', '橙色'],
+    ['常识', '动物', '哪种动物会喵喵叫？', '猫', '狗', '鸭', '牛'],
+    ['常识', '动物', '哪种动物有很长的鼻子？', '大象', '兔子', '小鸡', '金鱼'],
+    ['常识', '动物', '哪种动物通常生活在水里，用鳃呼吸？', '金鱼', '小猫', '小狗', '山羊'],
+    ['常识', '生活', '刷牙时要用什么？', '牙刷', '尺子', '梳子', '勺子'],
+    ['常识', '生活', '下雨出门，可以用什么挡雨？', '雨伞', '扇子', '水杯', '铅笔'],
+    ['常识', '生活', '睡觉前，哪种做法有助于保护牙齿？', '刷牙', '吃糖', '喝甜汽水', '咬玩具'],
+    ['常识', '安全', '过马路等信号灯时，红灯亮了该怎么办？', '停下来等', '跑过去', '闭眼走', '在马路上玩'],
+    ['常识', '安全', '不小心和家长走散了，可以向谁求助？', '现场的警察', '电话里的陌生人', '路边的小猫', '商店里的玩偶'],
+    ['数学', '形状', '足球的外形最接近什么？', '球体', '长方体', '圆柱体', '圆锥体'],
+    ['数学', '形状', '一个三角形有几条边？', '3', '2', '4', '5'],
+    ['数学', '规律', '红、蓝、红、蓝、红，接下来是什么颜色？', '蓝色', '红色', '黄色', '白色'],
+    ['数学', '规律', '小、大、大、小、大、大，接下来是哪一个？', '小', '大', '两个大', '两个小'],
+    ['语文', '听说', '收到别人送的礼物，可以说什么？', '谢谢', '对不起', '晚安', '请进'],
+    ['语文', '听说', '早上见到老师，可以怎么打招呼？', '老师早', '老师晚安', '老师再见', '老师请坐'],
+    ['语文', '词语', '“关门”的相反动作是什么？', '开门', '洗手', '起床', '拍手'],
+    ['语文', '词语', '哪一个词语表示声音很小？', '轻声', '大喊', '高唱', '尖叫'],
+    ['英语', '颜色', '英语 red 表示什么颜色？', '红色', '蓝色', '黄色', '绿色'],
+    ['英语', '颜色', '英语 blue 表示什么颜色？', '蓝色', '红色', '紫色', '白色'],
+    ['英语', '动物', '英语 cat 指哪种动物？', '猫', '狗', '鸭', '鱼'],
+    ['英语', '动物', '英语 dog 指哪种动物？', '狗', '猫', '羊', '马'],
+    ['英语', '问候', '见面打招呼时可以说哪个英语词？', 'Hello', 'Bye', 'Thanks', 'Sorry'],
+    ['英语', '数字', '英语 three 表示数字几？', '3', '1', '2', '4']
+];
+for (const [subject, topic, stem, correct, ...wrong] of preschool) {
+    add(0, 0, subject, topic, stem, correct, wrong, '正确答案是「' + correct + '」。');
+}
+for (let count = 2; count <= 10; count++) {
+    const dots = '● '.repeat(count).trim();
+    number(0, 0, '数数', '数一数，有几个圆点？\n' + dots, count, '从左到右，每个圆点只数一次。');
+    number(0, 0, '数序', count + ' 前面紧挨着的是几？', count - 1, '按顺序数一数，' + (count - 1) + ' 后面就是 ' + count + '。');
+}
+
+const mathPractice = [
+    ['认识钟表', n => ['时针指着 ' + n + '，分针指着 12，是几点？（选整点数字）', n, '分针指着 12 时是整点，读时针指的数字。']],
+    ['长度换算', n => [n + ' 米等于多少厘米？', n * 100, '1 米等于 100 厘米。']],
+    ['长方形周长', n => ['长方形的长是 ' + (n + 4) + ' 厘米，宽是 ' + n + ' 厘米，周长是多少厘米？', 4 * n + 8, '长方形周长等于（长＋宽）× 2。']],
+    ['平均数', n => [n + '、' + (n + 3) + '、' + (n + 6) + ' 的平均数是多少？', n + 3, '把三个数相加，再除以 3。']],
+    ['小数乘法', n => ['每支笔 2.5 元，买 ' + (n * 2) + ' 支需要多少元？', n * 5, '每两支共 5 元，再乘以组数。']],
+    ['比例尺', n => ['比例尺为 1∶1000，图上距离 ' + n + ' 厘米，实际距离是多少米？', n * 10, '图上 1 厘米对应实际 1000 厘米，也就是 10 米。']],
+    ['有理数', n => ['气温从 −' + n + ' ℃ 升高了 8 ℃，现在是多少摄氏度？', 8 - n, '把初始温度与升高的度数相加。']],
+    ['勾股定理', n => ['直角三角形两条直角边分别为 ' + (3 * n) + ' 和 ' + (4 * n) + '，斜边长是多少？', 5 * n, '斜边的平方等于两条直角边的平方和。']],
+    ['圆的周长', n => ['一个圆的半径为 ' + n + ' 厘米，它的周长是几倍 π 厘米？', 2 * n, '圆的周长等于 2πr。']]
+];
+mathPractice.forEach(([topic, exercise], index) => {
+    for (let n = 2; n <= 12; n++) {
+        const [stem, answer, tip] = exercise(n);
+        number(index + 1, 0, topic, stem, answer, tip);
+    }
+});
+
 const seen = new Set();
 questions.forEach(question => {
     const key = question.level + '/' + question.term + '/' + question.q;
@@ -246,4 +300,4 @@ questions.forEach(question => {
     if (question.a[question.k] == null) throw new Error('Invalid answer');
 });
 fs.writeFileSync(path.join(root, 'data/seed.json'), JSON.stringify(questions, null, 2) + '\n');
-console.log('Built ' + questions.length + ' questions, 9 grades × 2 terms × 3 subjects.');
+console.log('Built ' + questions.length + ' questions across 10 grade levels.');
