@@ -1,5 +1,7 @@
 /.gradle/
 /.idea/
+/.release-signing/
+/SOURCE_AUDIT.md
 /local.properties
 **/build/
 /build/
